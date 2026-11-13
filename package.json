@@ -1,6 +1,6 @@
 {
   "name": "teleagent-dashboard",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "TeleAgent 云电脑保活 + 每日积分 + 电源管理控制台",
   "main": "server.js",
   "scripts": {

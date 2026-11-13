@@ -52,6 +52,7 @@ h1 .dot{width:10px;height:10px;border-radius:50%;background:var(--ok);box-shadow
 .mbox p{color:var(--sub);font-size:13px;margin-bottom:16px}
 .mfoot{display:flex;justify-content:flex-end;gap:8px}
 input[type=time]{background:#0d1526;border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:4px 8px}
+.inp{background:#0d1526;border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:5px 8px;font-size:13px;width:100%;margin:3px 0}
 .toast{position:fixed;top:18px;right:18px;background:#152238;border:1px solid var(--line);border-left:3px solid var(--ok);
   border-radius:8px;padding:10px 16px;font-size:13px;display:none;z-index:60}
 </style>
@@ -113,6 +114,24 @@ input[type=time]{background:#0d1526;border:1px solid var(--line);color:var(--txt
       <div class="bar"><i id="sy-mem-bar" style="width:0;background:linear-gradient(90deg,var(--violet),#f472b6)"></i></div>
       <div class="row"><span>主机名</span><b id="sy-host">--</b></div>
       <div class="row"><span>凭据有效期</span><b id="sy-auth">--</b></div>
+    </div>
+
+    <!-- 账号登录 -->
+    <div class="card">
+      <h2>🔑 账号登录 <span id="lg-pill" class="pill p-off">--</span></h2>
+      <div class="row"><span>当前凭据</span><b id="lg-source">--</b></div>
+      <div class="row"><span>已存账号</span><b id="lg-account">--</b></div>
+      <div class="row"><span>自动续期</span><b id="lg-auto">--</b></div>
+      <input type="text" class="inp" id="lg-user" placeholder="手机号 / 账号" autocomplete="off">
+      <input type="password" class="inp" id="lg-pass" placeholder="密码" autocomplete="new-password">
+      <label style="font-size:12px;color:var(--sub);display:flex;align-items:center;gap:6px;margin:4px 0">
+        <input type="checkbox" id="lg-remember" checked> 记住密码（登录态快过期时自动重登）
+      </label>
+      <div class="actions">
+        <button class="btn primary" id="lg-login">登录获取凭据</button>
+        <button class="btn" id="lg-relogin">立即续期</button>
+        <button class="btn" id="lg-logout">清除登录</button>
+      </div>
     </div>
   </div>
 
@@ -194,6 +213,17 @@ function render() {
   $('sy-mem-bar').style.width = sy.mem_pct + '%';
   $('sy-host').textContent = sy.hostname;
   $('sy-auth').textContent = auth.ok ? `${auth.expires_text}（剩 ${auth.days_left} 天）` : (auth.error || '未加载');
+  // 登录
+  const lp = $('lg-pill');
+  if (auth.source === 'client-token.json') { lp.className = 'pill p-ok'; lp.textContent = '客户端'; }
+  else if (auth.source === 'jwt-file' && auth.has_password) { lp.className = 'pill p-ok'; lp.textContent = '密码登录'; }
+  else if (auth.source === 'jwt-file') { lp.className = 'pill p-warn'; lp.textContent = 'JWT 文件'; }
+  else { lp.className = auth.ok ? 'pill p-ok' : 'pill p-err'; lp.textContent = auth.ok ? '正常' : '未加载'; }
+  const srcMap = { 'client-token.json': '本机客户端（自动续期）', 'jwt-file': '登录 / JWT 文件', none: '未加载' };
+  $('lg-source').textContent = srcMap[auth.source] || auth.source;
+  $('lg-account').textContent = auth.account_masked || '未保存';
+  $('lg-auto').textContent = auth.relogin_check_text || '未配置';
+  $('lg-relogin').disabled = !auth.has_password;
   if (!$('cfg-time').value) $('cfg-time').value = sc.claim_time;
   if (!$('cfg-refresh').value) $('cfg-refresh').value = ka.refresh_sec || 300;
 }
@@ -247,6 +277,32 @@ $('ka-open').onclick = async () => {
   } catch (e) { toast('打开失败：' + e.message, false); }
 };
 $('pt-refresh').onclick = async () => { toast('刷新中…'); await post('/api/points/refresh'); };
+
+$('lg-login').onclick = async () => {
+  const account = $('lg-user').value.trim();
+  const password = $('lg-pass').value;
+  if (!account || !password) return toast('先填账号和密码', false);
+  const btn = $('lg-login');
+  btn.disabled = true; btn.textContent = '登录中（含滑块校验）…';
+  try {
+    const r = await fetch('/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ account, password, remember: $('lg-remember').checked }) });
+    const j = await r.json().catch(() => ({}));
+    toast(j.ok ? `✅ 登录成功，凭据有效期至 ${j.expires_text}（剩 ${j.days_left} 天）` : '登录失败：' + (j.error || '未知'), !!j.ok);
+    if (j.ok) { $('lg-pass').value = ''; poll(); }
+  } catch (e) { toast('登录失败：' + e.message, false); }
+  btn.disabled = false; btn.textContent = '登录获取凭据';
+};
+$('lg-relogin').onclick = async () => {
+  const r = await post('/api/auth/relogin');
+  toast(r.ok ? `✅ 已续期，有效期至 ${r.expires_text || ''}` : '续期失败：' + (r.error || '未知'), !!r.ok);
+  poll();
+};
+$('lg-logout').onclick = () => confirmBox('清除登录凭据', '将删除已保存的账号密码与 data/jwt.txt，并尝试回退到本机客户端凭据（Docker 环境下凭据将清空，需重新登录）。确定继续？', async () => {
+  const r = await post('/api/auth/logout');
+  toast(r.ok ? (r.restored ? '已回退到本机客户端凭据' : '已清除登录（无客户端凭据可回退）') : '操作失败', !!r.ok);
+  poll();
+});
 $('pt-claim').onclick = async () => {
   $('pt-claim').disabled = true;
   toast('领取任务已启动（驱动客户端界面，约 15 秒）');

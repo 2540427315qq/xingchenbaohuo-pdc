@@ -10,6 +10,7 @@ const fs = require('fs');
 const path = require('path');
 
 const Auth = require('./lib/auth');
+const Login = require('./lib/login');
 const Api = require('./lib/api');
 const KeepAlive = require('./lib/keepalive');
 const Power = require('./lib/power');
@@ -25,8 +26,9 @@ const PORT = parseInt(process.env.PORT || '8590', 10);
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const log = new Log(DATA_DIR);
+const login = new Login(DATA_DIR, log);
 const config = loadConfig();
-const auth = new Auth(config, log);
+const auth = new Auth(config, log, login);
 const api = new Api(auth, config, log);
 const notifier = new Notifier(config, log);
 const ka = new KeepAlive(auth, config, log, notifier);
@@ -41,6 +43,8 @@ function loadConfig() {
     // token 来源（Windows 客户端路径；Docker 里改用 TA_TOKEN_FILE 直接放明文 JWT 文件）
     teleagent_dir: process.env.TA_DIR || 'D:/TeleAgent/data',
     token_file: process.env.TA_TOKEN_FILE || '',        // 显式 JWT 文件优先
+    // 账号密码登录（异地部署主力：页面登录 → JWT 落盘 data/jwt.txt，自动重登续期）
+    auth: { account: '', passwordEnc: '', autoRelogin: true, reloginDays: 7 },
     // 保活（ticket 模式：instance/connect 换票 + 自愈 instance/start）
     keepalive: { enabled: true, mode: 'ticket', refreshSec: 300 },
     // 积分（poll_minutes：认证 API 定期轮询，兼作账号活动心跳）
@@ -141,6 +145,36 @@ const server = http.createServer(async (req, res) => {
       }
       return;
     }
+    // 账号密码登录：换取 JWT 并接管凭据（密码密文存 data/config.json，明文不落盘）
+    if (req.method === 'POST' && url.pathname === '/api/auth/login') {
+      let body = '';
+      for await (const c of req) body += c;
+      const b = JSON.parse(body || '{}');
+      const account = String(b.account || '').trim();
+      const password = String(b.password || '');
+      if (!account || !password) return json(res, { ok: false, error: '账号和密码都要填' }, 400);
+      try {
+        const r = await auth.loginAndStore(account, password, { remember: b.remember !== false });
+        json(res, r);
+      } catch (e) {
+        json(res, { ok: false, error: e.message }, 400);
+      }
+      return;
+    }
+    // 用已保存的账号密码立即重登（手动续期）
+    if (req.method === 'POST' && url.pathname === '/api/auth/relogin') {
+      try {
+        json(res, await auth.reloginSaved());
+      } catch (e) {
+        json(res, { ok: false, error: e.message }, 400);
+      }
+      return;
+    }
+    // 清除登录凭据（回退客户端 token.json 模式）
+    if (req.method === 'POST' && url.pathname === '/api/auth/logout') {
+      json(res, await auth.clearLogin());
+      return;
+    }
     // 通知配置 / 测试
     if (req.method === 'POST' && url.pathname === '/api/notify') {
       let body = '';
@@ -181,6 +215,13 @@ const server = http.createServer(async (req, res) => {
       const patch = JSON.parse(body || '{}');
       const allowed = ['points', 'keepalive', 'notify'];
       for (const k of allowed) if (patch[k]) config[k] = deepMerge(config[k], patch[k]);
+      // auth 节仅允许改开关（账号/密码只能通过 /api/auth/login 设置，禁止外部直接写入）
+      if (patch.auth && typeof patch.auth === 'object') {
+        const a = config.auth || {};
+        if (typeof patch.auth.autoRelogin === 'boolean') a.autoRelogin = patch.auth.autoRelogin;
+        if (patch.auth.reloginDays != null) a.reloginDays = Math.max(1, parseInt(patch.auth.reloginDays, 10) || 7);
+        config.auth = a;
+      }
       fs.writeFileSync(config._file, JSON.stringify({ ...config, _file: undefined }, null, 2));
       scheduler.reschedule();
       // 保活间隔变化时同步到 ka
@@ -196,7 +237,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 function json(res, obj, code = 200) {
-  res.writeHead(code, { 'content-type': 'application/json' });
+  res.writeHead(code, { 'content-type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(obj));
 }
 

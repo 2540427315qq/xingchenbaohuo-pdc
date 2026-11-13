@@ -10,6 +10,7 @@ TeleAgent 云电脑的**实例保活 + 一键打开云电脑 + 每日积分 + �
 - 🚀 **一键打开云电脑**：页面按钮直达官方网页端（临时票据 URL，点击即用）
 - 🎁 **每日积分**：自动/手动领取积分福利社 100 积分（驱动本机客户端 UI，已验证通道），状态实时展示
 - ⚡ **电源管理**：一键重启（60 秒倒计时可取消）；重装直达官方安全中心
+- 🔑 **账号密码登录**：任意部署环境打开页面即可登录获取凭据（滑块验证码自动识别），无需从源机导出 JWT；登录态快过期时自动重登
 - 🖥️ **机器状态**：CPU/内存/运行时长/凭据有效期
 - 📢 **企微通知**：掉线/自动拉起/积分到账推送（webhook，带冷却去重）
 - 📜 活动日志 + 领取时间/保活间隔设置
@@ -24,26 +25,42 @@ node server.js       # 打开 http://127.0.0.1:8590
 
 鉴权自动完成：读取 TeleAgent 客户端 `data/users/*/app-auth/token.json`，DPAPI + AES-GCM 解出 JWT；客户端续期后自动跟进（每分钟检测文件变化）。
 
+异地部署或客户端不可用时：在控制台「🔑 账号登录」卡片用手机号+密码登录，JWT 自动落盘接管。
+
 依赖：Python 侧领取脚本需要 `uiautomation comtypes pywin32`（`pip install uiautomation comtypes pywin32`）。
 
 ## Docker 部署（其他机器）
 
-容器内无 Windows 客户端，鉴权改用挂载的 JWT 文件：
+容器内无 Windows 客户端，**直接用页面登录即可**，无需任何 token 文件：
 
 ```powershell
-# 1) 在源云电脑导出 JWT（单行文本）
-python scripts/export_jwt.py > data/jwt.txt
-# 2) 拷贝整个 teleagent-dashboard 目录到目标机，然后：
+# 1) 克隆仓库（私有库，密码用 GitHub token）
+git clone https://github.com/TimerDev/teleagent-dashboard.git
+cd teleagent-dashboard
+# 2) 启动
 docker compose up -d --build
-# 打开 http://<目标机IP>:8590
+# 3) 打开 http://<目标机IP>:8590 → 「🔑 账号登录」卡片 → 输入手机号+密码登录
 ```
 
-> JWT 有效期约 23 天，过期后重新导出并替换 `data/jwt.txt`，容器会自动检测更新（60 秒内）。
+登录后 JWT 写入容器内 `data/jwt.txt`（挂载卷持久化），工具自动接管并按 `reloginDays` 自动重登续期，无需人工维护。
+
+<details><summary>旧方式：手动导出 JWT 文件（兼容保留）</summary>
+
+```powershell
+# 在源云电脑导出 JWT（单行文本）
+python scripts/export_jwt.py > data/jwt.txt
+# 拷贝整个 teleagent-dashboard 目录到目标机， TA_TOKEN_FILE=data/jwt.txt 指定，或直接 docker compose up
+```
+
+> JWT 有效期约 23 天，过期后重新导出替换，容器会自动检测更新（60 秒内）。
+
+</details>
 > Docker 模式下「立即领取」按钮不可用（无客户端 UI），领取请在源机进行或手动领取；状态/心跳/重启均可用。
 
 ## 安全说明
 
-- JWT 只保存在本机 `data/` 目录；控制台默认只监听 127.0.0.1
+- JWT/密码只保存在本机 `data/` 目录（密码为 AES-256-GCM 密文，密钥在 `data/.secret`），`data/` 已被 .gitignore 排除；控制台默认只监听 127.0.0.1
+- 密码明文仅在登录瞬间存在于内存，接口不回显、配置不可外部写入
 - 重启有 60 秒缓冲与取消；重装跳转官方页面由官方确认流程把关
 - 部署到公网前请自行加反向代理鉴权
 
@@ -51,6 +68,8 @@ docker compose up -d --build
 
 | 键 | 说明 | 默认 |
 |---|---|---|
+| `auth.account / auth.passwordEnc` | 登录账号与密码密文（仅页面登录写入，不可外部配置） | 空 |
+| `auth.autoRelogin / auth.reloginDays` | 登录态剩余不足 N 天时自动重登 | true / 7 |
 | `keepalive.enabled` | 保活开关 | true |
 | `keepalive.mode` | 保活模式（ticket=换票不占位；claim 暂未实现） | ticket |
 | `keepalive.refreshSec` | 换票间隔秒数（最小 60） | 300 |
