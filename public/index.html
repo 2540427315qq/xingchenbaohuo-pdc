@@ -87,8 +87,6 @@ select{background:#0d1526;border:1px solid var(--line);color:var(--txt);border-r
       <h2>🎁 签到积分 <span id="pt-claimed" class="pill p-off">--</span></h2>
       <div class="big" id="pt-balance">-- 积分</div>
       <div class="row"><span>套餐</span><b id="pt-plan">--</b></div>
-      <div class="row"><span>本期已领</span><b id="pt-days">-- 天</b></div>
-      <div class="row"><span>累计</span><b id="pt-total">-- 积分</b></div>
       <div class="row"><span>下次自动领取</span><b id="pt-next">--</b></div>
       <div class="actions">
         <button class="btn primary" id="pt-claim">立即领取</button>
@@ -100,7 +98,6 @@ select{background:#0d1526;border:1px solid var(--line);color:var(--txt);border-r
     <div class="card">
       <h2>⚡ 电源管理 <span id="pw-pending" class="pill p-off" style="display:none">待重启</span></h2>
       <div class="row"><span>重启计划</span><b id="pw-plan">无</b></div>
-      <div class="row"><span>说明</span><b>重启自动恢复全部服务</b></div>
       <div class="actions">
         <button class="btn danger" id="pw-restart">重启云电脑</button>
         <button class="btn" id="pw-cancel" style="display:none">取消重启</button>
@@ -233,8 +230,6 @@ function render() {
   // 积分
   $('pt-balance').textContent = pt.balance != null ? pt.balance + ' 积分' : (pt.error ? '获取失败' : '--');
   $('pt-plan').textContent = pt.plan || '--';
-  $('pt-days').textContent = pt.days != null ? pt.days + ' 天' : '--';
-  $('pt-total').textContent = pt.total != null ? pt.total : '--';
   $('pt-next').textContent = sc.next_claim_text || '--';
   const cp = $('pt-claimed');
   if (sc.claiming) { cp.className='pill p-warn'; cp.textContent='领取中…'; }
@@ -278,7 +273,7 @@ function render() {
   const lp = $('lg-pill');
   if (auth.ok) { lp.className = 'pill p-ok'; lp.textContent = auth.has_password ? '密码登录' : 'JWT 文件'; }
   else { lp.className = 'pill p-err'; lp.textContent = '未加载'; }
-  const srcMap = { 'jwt-file': '登录落盘（自动续期）', none: '未加载' };
+  const srcMap = { 'jwt-file': '登录落盘', 'password-login': '账号密码登录', none: '未加载' };
   $('lg-source').textContent = srcMap[auth.source] || auth.source;
   $('lg-account').textContent = auth.account_masked || '未保存';
   $('lg-auto').textContent = auth.relogin_check_text || '未配置';
@@ -316,8 +311,10 @@ function toast(msg, ok=true) {
   t.style.borderLeftColor = ok ? 'var(--ok)' : 'var(--err)';
   setTimeout(() => t.style.display = 'none', 2600);
 }
-async function post(url) {
-  const r = await fetch(url, { method: 'POST' });
+async function post(url, body) {
+  const opt = { method: 'POST' };
+  if (body) { opt.headers = { 'content-type': 'application/json' }; opt.body = JSON.stringify(body); }
+  const r = await fetch(url, opt);
   return r.json().catch(() => ({}));
 }
 
@@ -412,7 +409,7 @@ $('lg-logout').onclick = () => confirmBox('清除登录凭据', '将删除已保
 });
 $('pt-claim').onclick = async () => {
   $('pt-claim').disabled = true;
-  toast('领取任务已启动（驱动客户端界面，约 15 秒）');
+  toast('正在领取（API）…');
   const r = await post('/api/points/claim');
   $('pt-claim').disabled = false;
   toast(r.status === 'claimed' ? '✅ 领取成功 +100 积分' : r.status === 'already_claimed' ? '今日已领取过' : '结果：' + (r.status || r.error || '未知'), r.ok);
