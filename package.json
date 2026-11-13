@@ -1,7 +1,7 @@
 {
   "name": "teleagent-dashboard",
-  "version": "1.8.0",
-  "description": "TeleAgent 云电脑保活 + 每日积分 + 电源管理控制台",
+  "version": "1.9.0",
+  "description": "TeleAgent cloud PC keepalive + daily points + power management console",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

@@ -9,7 +9,7 @@ TeleAgent 云电脑的**实例保活 + 一键打开云电脑 + 每日积分 + �
 - 🔌 **实例保活（ticket 模式）**：每 5 分钟调 `instance/connect` 换票（活跃信号，不占客户端位、不顶浏览器会话）；发现实例关机/排队时自动 `instance/start` **远程拉起**
 - 🚀 **一键打开云电脑**：页面按钮直达官方网页端（临时票据 URL，点击即用）
 - 🎁 **每日积分**：自动/手动领取积分福利社 100 积分（平台 API，任意部署环境可用），状态实时展示
-- ⚡ **电源管理**：一键重启（60 秒倒计时可取消）；**定时重启计划**（每日/每周可选，领取任务进行中自动避让）；重装直达官方安全中心
+- ⚡ **电源管理**：一键**平台重启**（`instance/restart`，任意部署位置可用，与官方「恢复与重置」同一动作）；本机部署另有 60 秒倒计时重启（可取消）；**定时重启计划**（每日/每周，仅本机模式）；重置服务/重装直达官方页面
 - 🔑 **账号密码登录**：任意部署环境打开页面即可登录获取凭据（滑块验证码自动识别），登录态快过期时自动重登
 - 🖥️ **机器状态**：CPU/内存/运行时长/凭据有效期
 - 📢 **企微通知**：掉线/自动拉起/积分到账推送（webhook，带冷却去重）
@@ -53,7 +53,7 @@ docker compose up -d --build
 
 - JWT/密码只保存在本机 `data/` 目录（密码为 AES-256-GCM 密文，密钥在 `data/.secret`），`data/` 已被 .gitignore 排除；控制台默认只监听 127.0.0.1
 - 密码明文仅在登录瞬间存在于内存，接口不回显、配置不可外部写入
-- 重启有 60 秒缓冲与取消；重装跳转官方页面由官方确认流程把关
+- 重启有 60 秒缓冲与取消（仅本机模式）；平台重启走官方接口 `instance/restart`；重置服务/重装跳转官方页面由官方确认流程把关
 - **面板自带登录页（可选）**：未登录访问自动跳到内置登录页（深色风格，错误提示/摇动反馈）；验证通过后签发 HttpOnly 会话 Cookie（7 天，改密码即全部失效），期间免重复输入；Basic 照旧支持（curl/脚本带 `-u` 即可）；带节流（10 分钟内连续错 8 次锁定）
   - Docker：同目录 `.env` 填 `TA_PANEL_USER` / `TA_PANEL_PASSWORD`（或部署平台的 Environment variables），`docker compose up -d` 生效；勿改 `docker-compose.yml`，`git pull` 会冲突
   - 本机：同上环境变量，或 `data/config.json` 写 `{ "panel": { "pass_hash": "<sha256(\"user:密码\") 的 hex>" } }`
@@ -74,10 +74,10 @@ docker compose up -d --build
 | `panel.pass_hash` | 面板 Basic Auth（sha256("user:密码") 的 hex；不设则不启用，优先级：env `TA_PANEL_PASSWORD_HASH` > `TA_PANEL_PASSWORD` > 此处） | 空 |
 | `points.claim_time` | 每日领取时间 | 08:05 |
 | `points.catchup_on_start` | 启动时补领 | true |
-| `power.mode` | **local**=云电脑本机部署（重启可用，shutdown 重启的就是云电脑）；**remote**=Docker 等异地部署（重启自动禁用，避免误重启部署机） | local（Docker 镜像默认 remote） |
+| `power.mode` | **local**=云电脑本机部署（`shutdown` 重启的就是云电脑，另提供 60 秒倒计时重启）；**remote**=Docker 等异地部署（本地 `shutdown` 自动禁用，避免误重启部署机；重启按钮改走平台接口 `instance/restart`，效果等同官方「重启云电脑」） | local（Docker 镜像默认 remote） |
 | `power.restart_plan` | 定时重启计划：enabled / mode（daily,weekly）/ time / weekday(0=周日)；面板可配，仅 local 模式生效，领取进行中自动跳过 | false / daily / 04:30 / 0 |
 | `teleagent_dir` | 客户端 data 目录（本机模式） | D:/TeleAgent/data |
 
-> ⚠️ **部署位置决定重启语义**：`shutdown` 永远作用于"工具所在的那台机器"。只有工具跑在云电脑本机上，重启才是重启云电脑。Docker 部署到 NAS/VPS/其他服务器时，本工具已通过 `TA_MODE=remote`（或 `power.mode: remote`）自动禁用重启按钮并拒绝重启指令；重装为 302 跳转官方页（在你自己的浏览器打开），与部署位置无关。
+> ⚠️ **两种重启的区别**：`shutdown` 永远作用于“工具所在的那台机器”，只有工具跑在云电脑本机上才是重启云电脑；异地部署（Docker/NAS/VPS）时本地 `shutdown` 被自动禁用（否则会重启部署机），按钮改调平台接口 `POST /teleagent-manager/v1/instance/restart`（body `{"id":"<实例id>"}`，与官方设置页「重启云电脑」完全一致）——任意部署位置都能用，不重装、不影响数据。重置服务（`instance/rebuild`）会清系统盘软件与数据，本工具不自动调用，仅提供官方页跳转。
 
 > AI生成

@@ -297,11 +297,22 @@ const server = http.createServer(async (req, res) => {
       json(res, r.ok ? { ok: true } : { ok: false, error: r.error || '未配置 webhook' }, r.ok ? 200 : 400);
       return;
     }
-    // 电源：重启（倒计时）
+    // 电源：重启（倒计时；仅 local 模式，shutdown 作用于本机）
     if (req.method === 'POST' && url.pathname === '/api/power/restart') {
       const sec = Math.max(30, parseInt(url.searchParams.get('delay') || '60', 10));
       const r = power.scheduleRestart(sec);
       json(res, r);
+      return;
+    }
+    // 平台重启（任意部署模式）：走平台实例接口（reboot/restart 或 stop+start），不动部署机
+    if (req.method === 'POST' && url.pathname === '/api/power/platform-restart') {
+      if (!auth.status().ok) return json(res, { ok: false, error: '未登录，无法调用平台接口' }, 400);
+      try {
+        json(res, await ka.platformRestart());
+      } catch (e) {
+        log.error('Power', `平台重启失败: ${e.message}`);
+        json(res, { ok: false, error: e.message }, 500);
+      }
       return;
     }
     if (req.method === 'POST' && url.pathname === '/api/power/cancel') {
