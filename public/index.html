@@ -112,11 +112,13 @@ select{background:#0d1526;border:1px solid var(--line);color:var(--txt);border-r
     <!-- 电源管理 -->
     <div class="card">
       <h2>⚡ 电源管理 <span id="pw-pending" class="pill p-off" style="display:none">待重启</span></h2>
+      <div class="row"><span>平台服务</span><b id="pw-service">--</b></div>
       <div class="row"><span>重启计划</span><b id="pw-plan">无</b></div>
       <div class="actions">
         <button class="btn danger" id="pw-restart">重启云电脑</button>
         <button class="btn" id="pw-cancel" style="display:none">取消重启</button>
-        <button class="btn" id="pw-reinstall">重装（官方页）</button>
+        <button class="btn danger" id="pw-rebuild">重置云电脑服务</button>
+        <button class="btn" id="pw-queue-cancel" style="display:none">取消排队</button>
       </div>
       <div class="planbox" id="pw-plan-box">
         <label><input type="checkbox" id="pw-plan-on"> 定时重启计划</label>
@@ -256,6 +258,17 @@ function render() {
   const remoteMode = pmode !== 'local';
   $('pw-restart').textContent = remoteMode ? '重启云电脑（平台）' : '重启云电脑';
   $('pw-restart').disabled = remoteMode && !auth.ok;
+  $('pw-rebuild').disabled = !auth.ok;
+  // 平台服务状态
+  const ss = (ka.service_status || {});
+  $('pw-service').textContent = ss.ok
+    ? '正常' + (ss.data ? '' : '')
+    : (ss.error ? '异常：' + ss.error.slice(0, 40) : '--');
+  $('pw-service').style.color = ss.ok ? 'var(--ok)' : (ss.error ? 'var(--err)' : '');
+  // 排队中显示「取消排队」
+  const queued = ka.instance_status === 5;
+  $('pw-queue-cancel').style.display = queued ? 'inline-block' : 'none';
+  $('pw-queue-cancel').disabled = !auth.ok;
   const plan = pw.restart_plan || { enabled: false, mode: 'daily', time: '04:30', weekday: 0 };
   $('pw-plan').textContent = pend
     ? pw.pending_restart_text
@@ -463,8 +476,22 @@ $('pw-cancel').onclick = async () => {
   const r = await post('/api/power/cancel');
   toast(r.ok ? '已取消重启' : r.error, !!r.ok);
 };
-$('pw-reinstall').onclick = () => confirmBox('前往官方安全中心', '将打开官方安全中心页面（网页端）。重装会清空云电脑全部数据，属于不可逆高危操作，请务必在官方界面仔细确认。', async () => {
-  window.open('/api/power/reinstall', '_blank');
+$('pw-rebuild').onclick = () => {
+  confirmBox('确认重置云电脑服务？',
+    '将重新安装云电脑服务并恢复运行环境（约 2 分钟）：历史任务、工作空间及个人设置会保留；但系统盘内安装的软件与数据将被清除，进行中的任务会中断。此操作不可中途取消。输入 RESET 之外不会执行。',
+    async () => {
+      const word = prompt('确认重置请输入 RESET（其他内容取消）：');
+      if (word !== 'RESET') return toast('已取消（未输入 RESET）', false);
+      toast('正在下发重置…');
+      const r = await post('/api/power/platform-rebuild?confirm=RESET');
+      toast(r.ok ? '⚠️ 重置已下发（instance/rebuild），约 2 分钟完成' : '重置失败：' + (r.error || '未知'), !!r.ok);
+      poll();
+    });
+};
+$('pw-queue-cancel').onclick = () => confirmBox('取消排队', '云电脑当前在排队中，取消后可稍后重新拉起。确定取消？', async () => {
+  const r = await post('/api/power/platform-cancel');
+  toast(r.ok ? '已取消排队' : '取消失败：' + (r.error || '未知'), !!r.ok);
+  poll();
 });
 $('pw-plan-mode').onchange = () => { $('pw-plan-day').style.display = $('pw-plan-mode').value === 'weekly' ? '' : 'none'; };
 $('pw-plan-save').onclick = async () => {

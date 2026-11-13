@@ -183,6 +183,42 @@ const server = http.createServer(async (req, res) => {
       }
       return;
     }
+    // 平台接口：重置云电脑服务（instance/rebuild，高危；需 confirm=RESET 参数防误触）
+    if (req.method === 'POST' && url.pathname === '/api/power/platform-rebuild') {
+      const confirmWord = String(url.searchParams.get('confirm') || '');
+      if (confirmWord !== 'RESET') {
+        return json(res, { ok: false, error: '缺少确认参数（confirm=RESET）' }, 400);
+      }
+      if (!auth.status().ok) return json(res, { ok: false, error: '未登录，无法调用平台接口' }, 400);
+      try {
+        json(res, await ka.platformRebuild());
+      } catch (e) {
+        log.error('Power', `平台重置失败: ${e.message}`);
+        json(res, { ok: false, error: e.message }, 500);
+      }
+      return;
+    }
+    // 平台接口：取消排队（instance/cancel）
+    if (req.method === 'POST' && url.pathname === '/api/power/platform-cancel') {
+      if (!auth.status().ok) return json(res, { ok: false, error: '未登录，无法调用平台接口' }, 400);
+      try {
+        json(res, await ka.platformCancel());
+      } catch (e) {
+        log.error('Power', `取消排队失败: ${e.message}`);
+        json(res, { ok: false, error: e.message }, 500);
+      }
+      return;
+    }
+    // 平台接口：服务状态（service/status，实时查询）
+    if (req.method === 'GET' && url.pathname === '/api/platform/service-status') {
+      if (!auth.status().ok) return json(res, { ok: false, error: '未登录，无法调用平台接口' }, 400);
+      try {
+        json(res, await ka.pollServiceStatus());
+      } catch (e) {
+        json(res, { ok: false, error: e.message }, 500);
+      }
+      return;
+    }
     // 临时诊断：福利社 API 探测（定位每日登录积分的领取接口）
     if (req.method === 'GET' && url.pathname === '/api/welfare/probe') {
       try {
@@ -391,6 +427,9 @@ auth.onToken(async (jwt) => {
   if (config.keepalive.enabled) ka.start(jwt);
   await api.refreshPoints();
   scheduler.start();
+  // 平台服务状态周期查询（10 分钟），供面板展示
+  ka.pollServiceStatus().catch(() => {});
+  setInterval(() => { ka.pollServiceStatus().catch(() => {}); }, 10 * 60 * 1000).unref();
 });
 auth.init().catch((e) => log.error('Auth', `初始化失败: ${e.message}`));
 
