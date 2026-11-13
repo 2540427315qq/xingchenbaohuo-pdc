@@ -25,7 +25,7 @@ node server.js       # 打开 http://127.0.0.1:8590 → 「🔑 账号登录」�
 
 登录后 JWT 落盘 `data/jwt.txt` 并自动接管凭据；重启后自动恢复（无需重复登录），登录态快过期时自动重登。
 
-> 需「每日积分自动领取」（UIA 驱动客户端）时，需在云电脑本机运行且安装：`pip install uiautomation comtypes pywin32`。异地部署时领取不可用（不依赖它）。
+> 每日积分自动领取走平台 API（带 JWT 调 `checkTask`），任意部署环境可用；领取失败会通过企微通知提醒。
 
 ## Docker 部署（其他机器）
 
