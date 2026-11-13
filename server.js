@@ -1,7 +1,7 @@
 // teleagent-dashboard — 会话保活 + 每日积分 + 电源管理 + 机器状态
-// 参考 muyicn/ctyun-dashboard 的架构思路，面向 TeleAgent 平台（agent.teleai.com.cn）
-// 鉴权：读取本机 TeleAgent 客户端的 token.json（Chromium Safe Storage 加密），
-//       DPAPI 解 os_crypt 密钥（Windows）→ Node 原生 AES-256-GCM 解出 JWT。
+// 面向 TeleAgent 平台（agent.teleai.com.cn），参考 muyicn/ctyun-dashboard 的架构思路。
+// 鉴权：页面「账号登录」（密码换取 JWT 落盘 data/jwt.txt，快过期时自动重登），
+//       亦支持短信验证码登录；密码以 AES-256-GCM 密文存 data/config.json。
 // 用法：node server.js  （配置见 data/config.json，首次运行自动生成）
 'use strict';
 
@@ -53,17 +53,16 @@ function loadConfig() {
     keepalive: { enabled: true, mode: 'ticket', refreshSec: 300 },
     // 积分（poll_minutes：认证 API 定期轮询，兼作账号活动心跳）
     points: { claim_time: '08:05', catchup_on_start: true, poll_minutes: 10 },
-    // 电源（local=云电脑本机部署，重启可用；remote=Docker 等异地部署，重启禁用）
+    // 电源（local=云电脑本机部署，本地 shutdown 可用；remote=异地部署，重启走平台接口）
     power: {
       mode: process.env.TA_MODE || 'local',
-      // 定时重启计划（面板可配；仅 local 模式生效）
+      // 定时重启计划（面板可配；local 走本地 shutdown，remote 走平台 instance/restart）
       restart_plan: { enabled: false, mode: 'daily', time: '04:30', weekday: 0 },
     },
     // 通知（企业微信 webhook，掉线/拉起/积分事件推送）
     notify: { enabled: false, wecomWebhook: '', cooldownMin: 30 },
     // 平台
     api_base: 'https://agent.teleai.com.cn/superCowork/sapi',
-    reinstall_url: 'https://agent.teleai.com.cn/teleagent?setting=securityCenter',
   };
   const fp = path.join(DATA_DIR, 'config.json');
   let cur = {};
@@ -156,7 +155,7 @@ const server = http.createServer(async (req, res) => {
       json(res, r);
       return;
     }
-    // 手动触发领取（UIA 后备通道）
+    // 手动触发领取（平台 API）
     if (req.method === 'POST' && url.pathname === '/api/points/claim') {
       const r = await scheduler.triggerClaim('manual');
       json(res, r);
@@ -312,7 +311,7 @@ const server = http.createServer(async (req, res) => {
       }
       return;
     }
-    // 清除登录凭据（回退客户端 token.json 模式）
+    // 清除登录凭据（JWT + 密码密文）
     if (req.method === 'POST' && url.pathname === '/api/auth/logout') {
       json(res, await auth.clearLogin());
       return;
@@ -340,7 +339,7 @@ const server = http.createServer(async (req, res) => {
       json(res, r);
       return;
     }
-    // 平台重启（任意部署模式）：走平台实例接口（reboot/restart 或 stop+start），不动部署机
+    // 平台重启（任意部署模式）：调用平台 instance/restart，不动部署机
     if (req.method === 'POST' && url.pathname === '/api/power/platform-restart') {
       if (!auth.status().ok) return json(res, { ok: false, error: '未登录，无法调用平台接口' }, 400);
       try {
@@ -353,13 +352,6 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && url.pathname === '/api/power/cancel') {
       json(res, power.cancelRestart());
-      return;
-    }
-    if (req.method === 'GET' && url.pathname === '/api/power/reinstall') {
-      // 官方安全中心直达（重装为危险操作，交由官方界面确认）
-      res.writeHead(302, { location: config.reinstall_url });
-      res.end();
-      power.openReinstallInBrowser();
       return;
     }
     if (req.method === 'POST' && url.pathname === '/api/config') {

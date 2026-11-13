@@ -9,7 +9,7 @@ TeleAgent 云电脑的**实例保活 + 一键打开云电脑 + 每日积分 + �
 - 🔌 **实例保活（换票 + 官方心跳）**：每 5 分钟 `instance/connect` 换票，并同时发官方 `instance/refresh` / `heartbeat` 活跃信号（面板可见心跳轮数）；发现实例关机/排队时自动 `instance/start` **远程拉起**，排队中可一键 `instance/cancel` 取消
 - 🚀 **一键打开云电脑**：页面按钮直达官方网页端（临时票据 URL，点击即用）
 - 🎁 **每日积分**：自动/手动领取积分福利社 100 积分（平台 API，任意部署环境可用），状态实时展示
-- ⚡ **电源管理**（均走平台接口，任意部署位置可用）：**平台重启**（`instance/restart`，与官方「恢复与重置」同一动作）、**重置云电脑服务**（`instance/rebuild`，页面二次确认+输入 RESET 后直调）、**平台服务状态**（`service/status`，10 分钟轮询）；本机部署另有 60 秒倒计时重启（可取消）与**定时重启计划**（仅本机模式）
+- ⚡ **电源管理**（均走平台接口，任意部署位置可用）：**重启云电脑**（`instance/restart`，与官方「恢复与重置」同一动作）、**重置云电脑服务**（`instance/rebuild`，页面二次确认+输入 RESET 后直调）、**平台服务状态**（`service/status`，10 分钟轮询）；本机部署另有 60 秒倒计时重启（可取消）；**定时重启计划**（local 走本地 shutdown，remote 走 `instance/restart`）
 - 🔑 **账号密码登录**：任意部署环境打开页面即可登录获取凭据（滑块验证码自动识别），登录态快过期时自动重登
 - 🖥️ **机器状态**：CPU/内存/运行时长/凭据有效期
 - 📢 **企微通知**：掉线/自动拉起/积分到账推送（webhook，带冷却去重）
@@ -58,7 +58,7 @@ docker compose up -d --build
 
 - JWT/密码只保存在本机 `data/` 目录（密码为 AES-256-GCM 密文，密钥在 `data/.secret`），`data/` 已被 .gitignore 排除；控制台默认只监听 127.0.0.1
 - 密码明文仅在登录瞬间存在于内存，接口不回显、配置不可外部写入
-- 重启有 60 秒缓冲与取消（仅本机模式）；平台重启走官方接口 `instance/restart`；重置服务/重装跳转官方页面由官方确认流程把关
+- 本机模式重启有 60 秒缓冲与取消；重启/重置均走官方接口（`instance/restart` / `instance/rebuild`），重置需页面二次确认+输入 RESET
 - **面板自带登录页（可选）**：未登录访问自动跳到内置登录页（深色风格，错误提示/摇动反馈）；验证通过后签发 HttpOnly 会话 Cookie（7 天，改密码即全部失效），期间免重复输入；Basic 照旧支持（curl/脚本带 `-u` 即可）；带节流（10 分钟内连续错 8 次锁定）
   - Docker：同目录 `.env` 填 `TA_PANEL_USER` / `TA_PANEL_PASSWORD`（或部署平台的 Environment variables），`docker compose up -d` 生效；勿改 `docker-compose.yml`，`git pull` 会冲突
   - 本机：同上环境变量，或 `data/config.json` 写 `{ "panel": { "pass_hash": "<sha256(\"user:密码\") 的 hex>" } }`

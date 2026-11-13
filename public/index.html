@@ -258,7 +258,7 @@ function render() {
   const remoteMode = pmode !== 'local';
   $('pw-pending').style.display = pend ? 'inline-block' : 'none';
   $('pw-cancel').style.display = pend ? 'inline-block' : 'none';
-  $('pw-restart').textContent = remoteMode ? '重启云电脑（平台）' : '重启云电脑';
+  $('pw-restart').textContent = '重启云电脑';
   $('pw-restart').disabled = remoteMode && !auth.ok;
   $('pw-rebuild').disabled = !auth.ok;
   // 平台服务状态
@@ -460,10 +460,10 @@ $('cf-yes').onclick = async () => {
 $('pw-restart').onclick = () => {
   const remote = (S && S.power && S.power.mode) !== 'local';
   if (remote) {
-    confirmBox('平台重启云电脑', '将调用平台接口重启云电脑（与官方「设置 > 恢复与重置 > 重启云电脑」同一动作）：不重装、数据不受影响，服务随系统自动启动，预计约 1 分钟。进行中的任务会中断。', async () => {
+    confirmBox('重启云电脑', '将与官方「设置 > 恢复与重置 > 重启云电脑」同一动作：不重装、数据不受影响，服务随系统自动启动，预计约 1 分钟。进行中的任务会中断。', async () => {
       toast('正在下发重启…');
       const r = await post('/api/power/platform-restart');
-      toast(r.ok ? '🔄 重启已下发（instance/restart），约 1 分钟后恢复' : '重启失败：' + (r.error || '未知'), !!r.ok);
+      toast(r.ok ? '🔄 重启已下发，约 1 分钟后恢复' : '重启失败：' + (r.error || '未知'), !!r.ok);
       poll();
     });
     return;
