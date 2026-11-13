@@ -8,7 +8,7 @@ TeleAgent 云电脑的**实例保活 + 一键打开云电脑 + 每日积分 + �
 
 - 🔌 **实例保活（ticket 模式）**：每 5 分钟调 `instance/connect` 换票（活跃信号，不占客户端位、不顶浏览器会话）；发现实例关机/排队时自动 `instance/start` **远程拉起**
 - 🚀 **一键打开云电脑**：页面按钮直达官方网页端（临时票据 URL，点击即用）
-- 🎁 **每日积分**：自动/手动领取积分福利社 100 积分（驱动本机客户端 UI，已验证通道），状态实时展示
+- 🎁 **每日积分**：自动/手动领取积分福利社 100 积分（平台 API，任意部署环境可用），状态实时展示
 - ⚡ **电源管理**：一键重启（60 秒倒计时可取消）；**定时重启计划**（每日/每周可选，领取任务进行中自动避让）；重装直达官方安全中心
 - 🔑 **账号密码登录**：任意部署环境打开页面即可登录获取凭据（滑块验证码自动识别），登录态快过期时自动重登
 - 🖥️ **机器状态**：CPU/内存/运行时长/凭据有效期
@@ -42,14 +42,18 @@ docker compose up -d --build
 
 登录后 JWT 写入容器内 `data/jwt.txt`（挂载卷持久化），工具自动接管并按 `reloginDays` 自动重登续期，无需人工维护。
 
-> Docker 模式下「立即领取」按钮不可用（无客户端 UI），领取请在源机进行或手动领取；状态/心跳/重启均可用。
+> 每日积分领取走平台 API（带 JWT 调 `checkTask`），Docker 下同样可用（无客户端依赖），“立即领取”随时可点。
 
 ## 安全说明
 
 - JWT/密码只保存在本机 `data/` 目录（密码为 AES-256-GCM 密文，密钥在 `data/.secret`），`data/` 已被 .gitignore 排除；控制台默认只监听 127.0.0.1
 - 密码明文仅在登录瞬间存在于内存，接口不回显、配置不可外部写入
 - 重启有 60 秒缓冲与取消；重装跳转官方页面由官方确认流程把关
-- 部署到公网前请自行加反向代理鉴权
+- **面板自带 Basic Auth（可选）**：公网/隧道暴露前建议开启，页面与全部 API 统一过闸
+  - Docker：`docker-compose.yml` 放开 `TA_PANEL_USER` / `TA_PANEL_PASSWORD` 注释并设强密码
+  - 本机：同上环境变量，或 `data/config.json` 写 `{ "panel": { "pass_hash": "<sha256(\"user:密码\") 的 hex>" } }`
+  - 公网暴露建议三层叠加：边缘身份（如 Cloudflare Access）+ 面板密码 + origin 只绑回环（`127.0.0.1:8590:8590`）
+- 未开启 Basic Auth 时，任何能访问面板的人可调用 `/api/desktop/open` 拿到进入云电脑的临时票据 URL，请勿裸露
 
 ## 配置（data/config.json）
 
@@ -61,6 +65,7 @@ docker compose up -d --build
 | `keepalive.mode` | 保活模式（ticket=换票不占位；claim 暂未实现） | ticket |
 | `keepalive.refreshSec` | 换票间隔秒数（最小 60） | 300 |
 | `notify.enabled / notify.wecomWebhook` | 企微推送 | false / 空 |
+| `panel.pass_hash` | 面板 Basic Auth（sha256("user:密码") 的 hex；不设则不启用，优先级：env `TA_PANEL_PASSWORD_HASH` > `TA_PANEL_PASSWORD` > 此处） | 空 |
 | `points.claim_time` | 每日领取时间 | 08:05 |
 | `points.catchup_on_start` | 启动时补领 | true |
 | `power.mode` | **local**=云电脑本机部署（重启可用，shutdown 重启的就是云电脑）；**remote**=Docker 等异地部署（重启自动禁用，避免误重启部署机） | local（Docker 镜像默认 remote） |

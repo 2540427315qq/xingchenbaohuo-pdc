@@ -18,6 +18,7 @@ const SysMon = require('./lib/sysmon');
 const Scheduler = require('./lib/scheduler');
 const Log = require('./lib/log');
 const Notifier = require('./lib/notify');
+const PanelAuth = require('./lib/panelauth');
 
 const ROOT = __dirname;
 const DATA_DIR = process.env.TA_DATA_DIR || path.join(ROOT, 'data');
@@ -35,6 +36,8 @@ const ka = new KeepAlive(auth, config, log, notifier);
 const power = new Power(config, log, notifier);
 const sysmon = new SysMon();
 const scheduler = new Scheduler({ config, log, api, ka, power, notifier });
+// 面板自带 Basic Auth（可选，公网/隧道暴露前开启）
+const panelAuth = new PanelAuth(config, log);
 // 定时重启避让：积分领取进行中则跳过本轮计划
 power.setBusyCheck(() => scheduler.running);
 
@@ -100,6 +103,8 @@ function status() {
 
 // ---------- HTTP ----------
 const server = http.createServer(async (req, res) => {
+  // 面板鉴权门禁：页面与所有 API 统一过闸
+  if (!panelAuth.check(req)) return panelAuth.challenge(res);
   const url = new URL(req.url, 'http://x');
   try {
     if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
@@ -332,6 +337,8 @@ const HOST = process.env.TA_HOST || '127.0.0.1';
 server.listen(PORT, HOST, () => {
   const shown = HOST === '0.0.0.0' ? '127.0.0.1（已监听全部网卡）' : HOST;
   log.info('System', `teleagent-dashboard 已就绪: http://${shown}:${PORT}`);
+  if (panelAuth.enabled) log.info('System', `面板登录保护已开启（Basic Auth，用户 ${panelAuth.user}）`);
+  else log.warn('System', '面板登录保护未开启（未设 TA_PANEL_PASSWORD）——仅建议本机 127.0.0.1 使用');
 });
 
 auth.onToken(async (jwt) => {

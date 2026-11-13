@@ -4,12 +4,16 @@ services:
     container_name: teleagent-dashboard
     restart: unless-stopped
     ports:
+      # 走 Cloudflare Tunnel（cloudflared 同机）时建议改为 "127.0.0.1:8590:8590"，origin 不对外开口
       - "8590:8590"
     environment:
       - TZ=Asia/Shanghai
       - PORT=8590
       # 关键：远程部署模式——重启功能自动禁用（shutdown 只会作用于部署机而非云电脑）
       - TA_MODE=remote
+      # 面板登录保护（Basic Auth）：暴露到公网/隧道前建议开启，设成强密码
+      # - TA_PANEL_USER=admin
+      # - TA_PANEL_PASSWORD=change-me-strong-password
     volumes:
       - ./data:/app/data
       # 鉴权：页面「账号登录」输入手机号+密码，JWT 自动写入 data/jwt.txt 并自动续期
