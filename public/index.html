@@ -222,7 +222,10 @@ async function poll() {
     const r = await fetch('/api/status');
     S = await r.json();
     render();
-  } catch {}
+  } catch (e) {
+    // 不要把渲染异常吞掉：控制台留痕，界面保持上一次状态继续轮询
+    console.error('[render]', e);
+  }
 }
 setInterval(poll, 3000);
 poll();
@@ -241,7 +244,7 @@ function render() {
   const info = ka.instance_info || {};
   $('ka-id').textContent = ka.instance_id || '--';
   $('ka-hb').textContent = ka.cycles != null ? ka.cycles + ' 轮' : '--';
-  $('ka-heart').textContent = ka.heartbeats ? `${ka.heartbeats} 轮（refresh+heartbeat）` : '--';
+  $('ka-heart').textContent = ka.heartbeats != null ? `${ka.heartbeats} 轮（refresh+heartbeat）` : '--';
   $('ka-heal').textContent = ka.healed != null ? ka.healed + ' 次' : '--';
   $('ka-last').textContent = ka.last_ticket_text || '--';
   // 积分
@@ -273,12 +276,12 @@ function render() {
   $('pw-queue-cancel').disabled = !auth.ok;
   const plan = pw.restart_plan || { enabled: false, mode: 'daily', time: '04:30', weekday: 0 };
   $('pw-plan').textContent = pw.restart_plan_text || '无';
-  // 计划控件（编辑中不覆盖；远程模式下未登录则禁用）
+  // 计划控件（编辑中不覆盖；未登录时禁用）
   const planBox = $('pw-plan-box');
   const editing = document.activeElement && planBox.contains(document.activeElement);
   const localMode = pmode === 'local';
-  $('pw-plan-hint').style.display = planLocked ? 'flex' : 'none';
   const planLocked = !localMode && !auth.ok;
+  $('pw-plan-hint').style.display = planLocked ? 'flex' : 'none';
   ['pw-plan-on', 'pw-plan-mode', 'pw-plan-day', 'pw-plan-time', 'pw-plan-save'].forEach((id) => { $(id).disabled = planLocked; });
   if (!editing) {
     $('pw-plan-on').checked = !!plan.enabled;
@@ -288,13 +291,14 @@ function render() {
   }
   $('pw-plan-day').style.display = $('pw-plan-mode').value === 'weekly' ? '' : 'none';
   // 机器
-  $('sy-uptime').textContent = sy.uptime_text;
-  $('sy-cpu').textContent = sy.cpu_pct + '%';
-  $('sy-cpu-bar').style.width = sy.cpu_pct + '%';
-  $('sy-mem').textContent = `${sy.mem_used_gb} / ${sy.mem_total_gb} GB (${sy.mem_pct}%)`;
-  $('sy-mem-bar').style.width = sy.mem_pct + '%';
-  $('sy-host').textContent = sy.hostname;
-  $('sy-os').textContent = sy.platform;
+  $('sy-uptime').textContent = sy.uptime_text || '--';
+  $('sy-cpu').textContent = (sy.cpu_pct != null ? sy.cpu_pct : '--') + '%';
+  $('sy-cpu-bar').style.width = (sy.cpu_pct || 0) + '%';
+  $('sy-mem').textContent = (sy.mem_used_gb != null && sy.mem_total_gb != null)
+    ? `${sy.mem_used_gb} / ${sy.mem_total_gb} GB (${sy.mem_pct}%)` : '--';
+  $('sy-mem-bar').style.width = (sy.mem_pct || 0) + '%';
+  $('sy-host').textContent = sy.hostname || '--';
+  $('sy-os').textContent = sy.platform || '--';
   $('lg-days') && ($('lg-days').textContent = auth.ok ? `${auth.expires_text}（剩 ${auth.days_left} 天）` : (auth.error || '未加载'));
   const scopeMap = { local: '本机', docker: '容器' };
   $('sy-scope').textContent = scopeMap[sy.scope] || '本机';
