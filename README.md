@@ -45,6 +45,11 @@ docker compose up -d --build
 > 或部署平台（Portainer / NAS 面板等）的 Environment variables 注入；`.env` 已被 .gitignore 排除。
 > 修改 `.env` 后重新 `docker compose up -d` 即生效（配置变了会自动重建容器）。
 
+> 基础镜像默认走 `docker.m.daocloud.io/library/node:20-alpine`（DaoCloud 公共加速，国内直拉）。
+> 若构建机可以直连 Docker Hub 或想换镜像源，加 build 参数即可：
+> `docker compose build --build-arg NODE_IMAGE=node:20-alpine`（或替换为任何可达的 node:20-alpine 镜像地址）。
+> npm 源也固定为 npmmirror，无需外网访问 Docker Hub / npm registry。
+
 登录后 JWT 写入容器内 `data/jwt.txt`（挂载卷持久化），工具自动接管并按 `reloginDays` 自动重登续期，无需人工维护。
 
 > 每日积分领取走平台 API（带 JWT 调 `checkTask`），Docker 下同样可用（无客户端依赖），“立即领取”随时可点。
