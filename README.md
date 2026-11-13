@@ -9,7 +9,7 @@ TeleAgent 云电脑的**实例保活 + 一键打开云电脑 + 每日积分 + �
 - 🔌 **实例保活（ticket 模式）**：每 5 分钟调 `instance/connect` 换票（活跃信号，不占客户端位、不顶浏览器会话）；发现实例关机/排队时自动 `instance/start` **远程拉起**
 - 🚀 **一键打开云电脑**：页面按钮直达官方网页端（临时票据 URL，点击即用）
 - 🎁 **每日积分**：自动/手动领取积分福利社 100 积分（驱动本机客户端 UI，已验证通道），状态实时展示
-- ⚡ **电源管理**：一键重启（60 秒倒计时可取消）；重装直达官方安全中心
+- ⚡ **电源管理**：一键重启（60 秒倒计时可取消）；**定时重启计划**（每日/每周可选，领取任务进行中自动避让）；重装直达官方安全中心
 - 🔑 **账号密码登录**：任意部署环境打开页面即可登录获取凭据（滑块验证码自动识别），无需从源机导出 JWT；登录态快过期时自动重登
 - 🖥️ **机器状态**：CPU/内存/运行时长/凭据有效期
 - 📢 **企微通知**：掉线/自动拉起/积分到账推送（webhook，带冷却去重）
@@ -77,6 +77,7 @@ python scripts/export_jwt.py > data/jwt.txt
 | `points.claim_time` | 每日领取时间 | 08:05 |
 | `points.catchup_on_start` | 启动时补领 | true |
 | `power.mode` | **local**=云电脑本机部署（重启可用，shutdown 重启的就是云电脑）；**remote**=Docker 等异地部署（重启自动禁用，避免误重启部署机） | local（Docker 镜像默认 remote） |
+| `power.restart_plan` | 定时重启计划：enabled / mode（daily,weekly）/ time / weekday(0=周日)；面板可配，仅 local 模式生效，领取进行中自动跳过 | false / daily / 04:30 / 0 |
 | `teleagent_dir` | 客户端 data 目录（本机模式） | D:/TeleAgent/data |
 | `token_file` | 明文 JWT 文件（Docker 模式，或环境变量 TA_TOKEN_FILE） | - |
 

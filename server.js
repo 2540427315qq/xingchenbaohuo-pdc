@@ -32,9 +32,11 @@ const auth = new Auth(config, log, login);
 const api = new Api(auth, config, log);
 const notifier = new Notifier(config, log);
 const ka = new KeepAlive(auth, config, log, notifier);
-const power = new Power(config, log);
+const power = new Power(config, log, notifier);
 const sysmon = new SysMon();
 const scheduler = new Scheduler({ config, log, api, ka, power, notifier });
+// 定时重启避让：积分领取进行中则跳过本轮计划
+power.setBusyCheck(() => scheduler.running);
 
 // ---------- 配置 ----------
 function loadConfig() {
@@ -50,7 +52,11 @@ function loadConfig() {
     // 积分（poll_minutes：认证 API 定期轮询，兼作账号活动心跳）
     points: { claim_time: '08:05', catchup_on_start: true, poll_minutes: 10 },
     // 电源（local=云电脑本机部署，重启可用；remote=Docker 等异地部署，重启禁用）
-    power: { mode: process.env.TA_MODE || 'local' },
+    power: {
+      mode: process.env.TA_MODE || 'local',
+      // 定时重启计划（面板可配；仅 local 模式生效）
+      restart_plan: { enabled: false, mode: 'daily', time: '04:30', weekday: 0 },
+    },
     // 通知（企业微信 webhook，掉线/拉起/积分事件推送）
     notify: { enabled: false, wecomWebhook: '', cooldownMin: 30 },
     // 平台
@@ -215,6 +221,19 @@ const server = http.createServer(async (req, res) => {
       const patch = JSON.parse(body || '{}');
       const allowed = ['points', 'keepalive', 'notify'];
       for (const k of allowed) if (patch[k]) config[k] = deepMerge(config[k], patch[k]);
+      // power 仅允许改 restart_plan（mode 关系安全门禁，禁止外部写入）
+      if (patch.power && patch.power.restart_plan && typeof patch.power.restart_plan === 'object') {
+        const rp = patch.power.restart_plan;
+        config.power = Object.assign({}, config.power || {}, {
+          restart_plan: {
+            enabled: !!rp.enabled,
+            mode: rp.mode === 'weekly' ? 'weekly' : 'daily',
+            time: /^\d{2}:\d{2}$/.test(String(rp.time)) ? String(rp.time) : '04:30',
+            weekday: Number.isInteger(Number(rp.weekday)) && Number(rp.weekday) >= 0 && Number(rp.weekday) <= 6 ? Number(rp.weekday) : 0,
+          },
+        });
+        power.applyPlan(config.power.restart_plan);
+      }
       // auth 节仅允许改开关（账号/密码只能通过 /api/auth/login 设置，禁止外部直接写入）
       if (patch.auth && typeof patch.auth === 'object') {
         const a = config.auth || {};

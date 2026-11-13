@@ -52,6 +52,10 @@ h1 .dot{width:10px;height:10px;border-radius:50%;background:var(--ok);box-shadow
 .mbox p{color:var(--sub);font-size:13px;margin-bottom:16px}
 .mfoot{display:flex;justify-content:flex-end;gap:8px}
 input[type=time]{background:#0d1526;border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:4px 8px}
+select{background:#0d1526;border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:4px 6px;font-size:12px}
+.planbox{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
+.planbox label{font-size:12px;color:var(--sub);display:flex;align-items:center;gap:6px}
+.planrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px}
 .inp{background:#0d1526;border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:5px 8px;font-size:13px;width:100%;margin:3px 0}
 .toast{position:fixed;top:18px;right:18px;background:#152238;border:1px solid var(--line);border-left:3px solid var(--ok);
   border-radius:8px;padding:10px 16px;font-size:13px;display:none;z-index:60}
@@ -101,6 +105,23 @@ input[type=time]{background:#0d1526;border:1px solid var(--line);color:var(--txt
         <button class="btn danger" id="pw-restart">重启云电脑</button>
         <button class="btn" id="pw-cancel" style="display:none">取消重启</button>
         <button class="btn" id="pw-reinstall">重装（官方页）</button>
+      </div>
+      <div class="planbox" id="pw-plan-box">
+        <label><input type="checkbox" id="pw-plan-on"> 定时重启计划</label>
+        <div class="planrow">
+          <select id="pw-plan-mode">
+            <option value="daily">每日</option>
+            <option value="weekly">每周</option>
+          </select>
+          <select id="pw-plan-day">
+            <option value="0">周日</option><option value="1">周一</option><option value="2">周二</option>
+            <option value="3">周三</option><option value="4">周四</option><option value="5">周五</option>
+            <option value="6">周六</option>
+          </select>
+          <input type="time" id="pw-plan-time">
+          <button class="btn" id="pw-plan-save">保存计划</button>
+        </div>
+        <div class="row" id="pw-plan-hint" style="display:none"><span>提示</span><b>远程模式下计划不可用</b></div>
       </div>
     </div>
 
@@ -204,7 +225,23 @@ function render() {
   $('pw-pending').style.display = pend ? 'inline-block' : 'none';
   $('pw-cancel').style.display = pend ? 'inline-block' : 'none';
   $('pw-restart').disabled = !pw.restart_available;
-  $('pw-plan').textContent = pend ? pw.pending_restart_text : (pmode === 'local' ? '无' : '远程模式：重启已禁用');
+  const plan = pw.restart_plan || { enabled: false, mode: 'daily', time: '04:30', weekday: 0 };
+  $('pw-plan').textContent = pend
+    ? pw.pending_restart_text
+    : (pmode === 'local' ? (pw.restart_plan_text || '无') : '远程模式：重启已禁用');
+  // 计划控件（编辑中不覆盖；远程模式只读）
+  const planBox = $('pw-plan-box');
+  const editing = document.activeElement && planBox.contains(document.activeElement);
+  const localMode = pmode === 'local';
+  $('pw-plan-hint').style.display = localMode ? 'none' : 'flex';
+  ['pw-plan-on', 'pw-plan-mode', 'pw-plan-day', 'pw-plan-time', 'pw-plan-save'].forEach((id) => { $(id).disabled = !localMode; });
+  if (!editing) {
+    $('pw-plan-on').checked = !!plan.enabled;
+    $('pw-plan-mode').value = plan.mode;
+    $('pw-plan-day').value = String(plan.weekday);
+    if (!$("pw-plan-time").value) $('pw-plan-time').value = plan.time;
+  }
+  $('pw-plan-day').style.display = $('pw-plan-mode').value === 'weekly' ? '' : 'none';
   // 机器
   $('sy-uptime').textContent = sy.uptime_text;
   $('sy-cpu').textContent = sy.cpu_pct + '%';
@@ -335,6 +372,19 @@ $('pw-cancel').onclick = async () => {
 $('pw-reinstall').onclick = () => confirmBox('前往官方安全中心', '将打开官方安全中心页面（网页端）。重装会清空云电脑全部数据，属于不可逆高危操作，请务必在官方界面仔细确认。', async () => {
   window.open('/api/power/reinstall', '_blank');
 });
+$('pw-plan-mode').onchange = () => { $('pw-plan-day').style.display = $('pw-plan-mode').value === 'weekly' ? '' : 'none'; };
+$('pw-plan-save').onclick = async () => {
+  const body = { power: { restart_plan: {
+    enabled: $('pw-plan-on').checked,
+    mode: $('pw-plan-mode').value,
+    weekday: parseInt($('pw-plan-day').value, 10) || 0,
+    time: $('pw-plan-time').value || '04:30',
+  } } };
+  const r = await fetch('/api/config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  toast(j.ok ? ($('pw-plan-on').checked ? `✅ 计划已保存：${$('pw-plan-mode').value === 'weekly' ? '每周' + ['日','一','二','三','四','五','六'][parseInt($('pw-plan-day').value,10)] : '每日'} ${$('pw-plan-time').value || '04:30'}` : '已停用定时重启') : '保存失败：' + (j.error || '未知'), !!j.ok);
+  poll();
+};
 $('cfg-save').onclick = async () => {
   const refresh = parseInt($('cfg-refresh').value || '300', 10);
   const r = await fetch('/api/config', { method: 'POST', headers: { 'content-type': 'application/json' },
