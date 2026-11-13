@@ -67,11 +67,13 @@ select{background:#0d1526;border:1px solid var(--line);color:var(--txt);border-r
   <div class="sub">会话心跳 · 每日积分 · 电源管理 · 机器状态</div>
 
   <div class="grid">
-    <!-- 保活心跳 -->
+    <!-- 实例保活 -->
     <div class="card">
       <h2>🔌 实例保活 <span id="ka-state" class="pill p-off">未启动</span></h2>
       <div class="big" id="ka-uptime">--</div>
-      <div class="row"><span>实例状态</span><b id="ka-inst">--</b></div>
+      <div class="row"><span>实例名称</span><b id="ka-name">--</b></div>
+      <div class="row"><span>规格</span><b id="ka-spec">--</b></div>
+      <div class="row"><span>到期时间</span><b id="ka-expire">--</b></div>
       <div class="row"><span>上次换票</span><b id="ka-last">--</b></div>
       <div class="row"><span>换票轮数</span><b id="ka-hb">--</b></div>
       <div class="row"><span>自愈次数</span><b id="ka-heal">--</b></div>
@@ -207,7 +209,12 @@ function render() {
   const [cls, txt] = map[ka.state] || ['p-off', ka.state];
   pill.className = 'pill ' + cls; pill.textContent = txt;
   $('ka-uptime').textContent = ka.instance_status_text || (ka.state === 'online' ? '运行中' : '--');
-  $('ka-inst').textContent = ka.instance_id ? ka.instance_id.slice(0, 12) + '…' : '--';
+  // 云电脑详情（instance API 返回，字段有则显示）
+  const info = ka.instance_info || {};
+  $('ka-name').textContent = info.name || info.instanceName || info.desktopName || (ka.instance_id ? ka.instance_id.slice(0, 12) + '…' : '--');
+  $('ka-spec').textContent = [info.specName, info.spec, info.cpu && info.memory ? info.cpu + 'C/' + info.memory : null].filter(Boolean)[0] || '--';
+  const exp = info.expireTime || info.expireAt || info.endTime || null;
+  $('ka-expire').textContent = exp ? String(exp).replace('T', ' ').slice(0, 16) : (info.duration ? '长期' : '--');
   $('ka-hb').textContent = ka.cycles != null ? ka.cycles + ' 轮' : '--';
   $('ka-heal').textContent = ka.healed != null ? ka.healed + ' 次' : '--';
   $('ka-last').textContent = ka.last_ticket_text || '--';
