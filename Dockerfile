@@ -1,6 +1,10 @@
 # teleagent-dashboard — TeleAgent 云电脑保活/积分/电源管理控制台
-# 容器内无 Windows 客户端 → 鉴权用页面「账号登录」（JWT 自动落盘 data/jwt.txt 并自动续期）
+# 鉴权用页面「账号登录」（JWT 自动落盘 data/jwt.txt 并自动续期）
 FROM node:20-alpine
+
+# 时区：装 tzdata 并设 TZ，保证日志/定时任务（领取时间、重启计划）按北京时间走
+RUN apk add --no-cache tzdata
+ENV TZ=Asia/Shanghai
 
 WORKDIR /app
 COPY package.json ./
