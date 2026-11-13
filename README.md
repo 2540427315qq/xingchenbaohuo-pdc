@@ -54,9 +54,10 @@ docker compose up -d --build
 - JWT/密码只保存在本机 `data/` 目录（密码为 AES-256-GCM 密文，密钥在 `data/.secret`），`data/` 已被 .gitignore 排除；控制台默认只监听 127.0.0.1
 - 密码明文仅在登录瞬间存在于内存，接口不回显、配置不可外部写入
 - 重启有 60 秒缓冲与取消；重装跳转官方页面由官方确认流程把关
-- **面板自带 Basic Auth（可选）**：公网/隧道暴露前建议开启，页面与全部 API 统一过闸
+- **面板自带登录页（可选）**：未登录访问自动跳到内置登录页（深色风格，错误提示/摇动反馈），密码验证走标准 Basic 凭证（浏览器记住后续免输）；公网/隧道暴露前建议开启
   - Docker：同目录 `.env` 填 `TA_PANEL_USER` / `TA_PANEL_PASSWORD`（或部署平台的 Environment variables），`docker compose up -d` 生效；勿改 `docker-compose.yml`，`git pull` 会冲突
   - 本机：同上环境变量，或 `data/config.json` 写 `{ "panel": { "pass_hash": "<sha256(\"user:密码\") 的 hex>" } }`
+  - 登录页显示用户名提示（`TA_PANEL_HINT=0` 可关）；未认证时 API 一律 401，不会重定向泄露入口
   - 公网暴露建议三层叠加：边缘身份（如 Cloudflare Access）+ 面板密码 + origin 只绑回环（`127.0.0.1:8590:8590`）
 - 未开启 Basic Auth 时，任何能访问面板的人可调用 `/api/desktop/open` 拿到进入云电脑的临时票据 URL，请勿裸露
 

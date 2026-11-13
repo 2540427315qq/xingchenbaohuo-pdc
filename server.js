@@ -103,9 +103,23 @@ function status() {
 
 // ---------- HTTP ----------
 const server = http.createServer(async (req, res) => {
-  // 面板鉴权门禁：页面与所有 API 统一过闸
-  if (!panelAuth.check(req)) return panelAuth.challenge(res);
+  // 登录页本身不走鉴权（静态页 + 提交到 /api/auth/me 校验）
   const url = new URL(req.url, 'http://x');
+  if (req.method === 'GET' && (url.pathname === '/login' || url.pathname === '/login.html')) {
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end(fs.readFileSync(path.join(ROOT, 'public', 'login.html')));
+    return;
+  }
+  // 登录校验：成功后浏览器自动缓存 Basic 凭证，后续所有请求免输
+  if (req.method === 'GET' && url.pathname === '/api/auth/me') {
+    if (panelAuth.verifyOnly(req)) return json(res, { ok: true, user: panelAuth.user });
+    if (!panelAuth.enabled) return json(res, { ok: true, user: panelAuth.user });
+    res.writeHead(401, { 'content-type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ ok: false, error: '用户名或密码不对' }));
+    return;
+  }
+  // 面板鉴权门禁：页面与所有 API 统一过闸（未登录页面 → 302 登录页；API → 401）
+  if (!panelAuth.check(req, res)) return;
   try {
     if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
