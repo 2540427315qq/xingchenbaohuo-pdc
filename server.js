@@ -261,8 +261,10 @@ function json(res, obj, code = 200) {
 }
 
 // ---------- 启动 ----------
-server.listen(PORT, '127.0.0.1', () => {
-  log.info('System', `teleagent-dashboard 已就绪: http://127.0.0.1:${PORT}`);
+const HOST = process.env.TA_HOST || '127.0.0.1';
+server.listen(PORT, HOST, () => {
+  const shown = HOST === '0.0.0.0' ? '127.0.0.1（已监听全部网卡）' : HOST;
+  log.info('System', `teleagent-dashboard 已就绪: http://${shown}:${PORT}`);
 });
 
 auth.onToken(async (jwt) => {

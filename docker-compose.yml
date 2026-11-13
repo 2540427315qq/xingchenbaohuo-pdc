@@ -8,9 +8,9 @@ services:
     environment:
       - TZ=Asia/Shanghai
       - PORT=8590
-      - TA_TOKEN_FILE=/app/data/jwt.txt
       # 关键：远程部署模式——重启功能自动禁用（shutdown 只会作用于部署机而非云电脑）
       - TA_MODE=remote
     volumes:
       - ./data:/app/data
-      # JWT 获取方式：在源云电脑上运行导出命令（见 README），把生成的 jwt.txt 放到本目录 data/ 下
+      # 鉴权首选：页面「账号登录」输入手机号+密码，JWT 自动写入 data/jwt.txt 并自动续期
+      # 兼容旧法：也可在源云电脑导出 JWT 放到本目录 data/jwt.txt（约 23 天换一次）
