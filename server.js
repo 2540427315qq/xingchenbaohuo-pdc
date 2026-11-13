@@ -150,6 +150,33 @@ const server = http.createServer(async (req, res) => {
       }
       return;
     }
+    // 临时诊断：福利社 API 探测（定位每日登录积分的领取接口）
+    if (req.method === 'GET' && url.pathname === '/api/welfare/probe') {
+      try {
+        const results = await api.probeWelfareApis();
+        json(res, { ok: true, results });
+      } catch (e) {
+        json(res, { ok: false, error: e.message }, 500);
+      }
+      return;
+    }
+    // 临时诊断：dayTask 原始返回
+    if (req.method === 'GET' && url.pathname === '/api/welfare/daytask') {
+      json(res, await api.dayTaskRaw());
+      return;
+    }
+    // 每日登录积分领取（API 版）
+    if (req.method === 'POST' && url.pathname === '/api/welfare/claim-daily') {
+      try {
+        const r = await api.claimDailyLogin();
+        log.info('Claim', `API 领取结果: ${JSON.stringify(r).slice(0, 200)}`);
+        json(res, r);
+      } catch (e) {
+        log.error('Claim', `API 领取失败: ${e.message}`);
+        json(res, { ok: false, error: e.message }, 500);
+      }
+      return;
+    }
     // 发送短信验证码
     if (req.method === 'POST' && url.pathname === '/api/auth/sms') {
       let body = '';
