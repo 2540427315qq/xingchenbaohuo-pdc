@@ -42,9 +42,8 @@ power.setBusyCheck(() => scheduler.running);
 function loadConfig() {
   const def = {
     port: PORT,
-    // token 来源（本机客户端自动解密；异地部署用页面账号登录，JWT 落盘 data/jwt.txt 自动接管）
-    teleagent_dir: process.env.TA_DIR || 'D:/TeleAgent/data',
-    token_file: process.env.TA_TOKEN_FILE || '',        // 内部使用：登录 JWT 落盘路径（页面登录后自动设置）
+    // token 来源：页面登录后 JWT 落盘 data/jwt.txt（token_file 为其落盘路径，登录后自动设置）
+    token_file: process.env.TA_TOKEN_FILE || '',
     // 账号密码登录（异地部署主力：页面登录 → JWT 落盘 data/jwt.txt，自动重登续期）
     auth: { account: '', passwordEnc: '', autoRelogin: true, reloginDays: 7 },
     // 保活（ticket 模式：instance/connect 换票 + 自愈 instance/start）

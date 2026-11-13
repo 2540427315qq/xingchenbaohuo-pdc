@@ -252,11 +252,9 @@ function render() {
   $('sy-auth').textContent = auth.ok ? `${auth.expires_text}（剩 ${auth.days_left} 天）` : (auth.error || '未加载');
   // 登录
   const lp = $('lg-pill');
-  if (auth.source === 'client-token.json') { lp.className = 'pill p-ok'; lp.textContent = '客户端'; }
-  else if (auth.source === 'jwt-file' && auth.has_password) { lp.className = 'pill p-ok'; lp.textContent = '密码登录'; }
-  else if (auth.source === 'jwt-file') { lp.className = 'pill p-warn'; lp.textContent = 'JWT 文件'; }
-  else { lp.className = auth.ok ? 'pill p-ok' : 'pill p-err'; lp.textContent = auth.ok ? '正常' : '未加载'; }
-  const srcMap = { 'client-token.json': '本机客户端（自动续期）', 'jwt-file': '登录 / JWT 文件', none: '未加载' };
+  if (auth.ok) { lp.className = 'pill p-ok'; lp.textContent = auth.has_password ? '密码登录' : 'JWT 文件'; }
+  else { lp.className = 'pill p-err'; lp.textContent = '未加载'; }
+  const srcMap = { 'jwt-file': '登录落盘（自动续期）', none: '未加载' };
   $('lg-source').textContent = srcMap[auth.source] || auth.source;
   $('lg-account').textContent = auth.account_masked || '未保存';
   $('lg-auto').textContent = auth.relogin_check_text || '未配置';
