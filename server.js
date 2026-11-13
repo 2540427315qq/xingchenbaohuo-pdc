@@ -33,7 +33,7 @@ const auth = new Auth(config, log, login);
 const api = new Api(auth, config, log);
 const notifier = new Notifier(config, log);
 const ka = new KeepAlive(auth, config, log, notifier);
-const power = new Power(config, log, notifier);
+const power = new Power(config, log, notifier, ka);
 const sysmon = new SysMon();
 const scheduler = new Scheduler({ config, log, api, ka, power, notifier });
 // 面板自带 Basic Auth（可选，公网/隧道暴露前开启）

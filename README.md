@@ -6,7 +6,7 @@ TeleAgent 云电脑的**实例保活 + 一键打开云电脑 + 每日积分 + �
 
 ## 功能
 
-- 🔌 **实例保活（ticket+心跳）**：每 5 分钟调 `instance/connect` 换票 + 官方 `instance/refresh`/`heartbeat` 活跃信号（不占客户端位）；发现实例关机/排队时自动 `instance/start` **远程拉起**，排队中可一键 `instance/cancel` 取消
+- 🔌 **实例保活（换票 + 官方心跳）**：每 5 分钟 `instance/connect` 换票，并同时发官方 `instance/refresh` / `heartbeat` 活跃信号（面板可见心跳轮数）；发现实例关机/排队时自动 `instance/start` **远程拉起**，排队中可一键 `instance/cancel` 取消
 - 🚀 **一键打开云电脑**：页面按钮直达官方网页端（临时票据 URL，点击即用）
 - 🎁 **每日积分**：自动/手动领取积分福利社 100 积分（平台 API，任意部署环境可用），状态实时展示
 - ⚡ **电源管理**（均走平台接口，任意部署位置可用）：**平台重启**（`instance/restart`，与官方「恢复与重置」同一动作）、**重置云电脑服务**（`instance/rebuild`，页面二次确认+输入 RESET 后直调）、**平台服务状态**（`service/status`，10 分钟轮询）；本机部署另有 60 秒倒计时重启（可取消）与**定时重启计划**（仅本机模式）
@@ -80,7 +80,7 @@ docker compose up -d --build
 | `points.claim_time` | 每日领取时间 | 08:05 |
 | `points.catchup_on_start` | 启动时补领 | true |
 | `power.mode` | **local**=云电脑本机部署（`shutdown` 重启的就是云电脑，另提供 60 秒倒计时重启）；**remote**=Docker 等异地部署（本地 `shutdown` 自动禁用，避免误重启部署机；重启按钮改走平台接口 `instance/restart`，效果等同官方「重启云电脑」） | local（Docker 镜像默认 remote） |
-| `power.restart_plan` | 定时重启计划：enabled / mode（daily,weekly）/ time / weekday(0=周日)；面板可配，仅 local 模式生效，领取进行中自动跳过 | false / daily / 04:30 / 0 |
+| `power.restart_plan` | 定时重启计划：enabled / mode（daily,weekly）/ time / weekday(0=周日)；面板可配，**local 走本地 shutdown（30 秒缓冲），remote 走平台 `instance/restart`**；领取进行中自动跳过 | false / daily / 04:30 / 0 |
 | `teleagent_dir` | 客户端 data 目录（本机模式） | D:/TeleAgent/data |
 
 > ⚠️ **两种重启的区别**：`shutdown` 永远作用于“工具所在的那台机器”，只有工具跑在云电脑本机上才是重启云电脑；异地部署（Docker/NAS/VPS）时本地 `shutdown` 被自动禁用（否则会重启部署机），按钮改调平台接口 `POST /teleagent-manager/v1/instance/restart`（body `{"id":"<实例id>"}`，与官方设置页「重启云电脑」完全一致）——任意部署位置都能用，不重装、不影响数据。重置服务走 `instance/rebuild`（需在面板二次确认并输入 RESET 才会执行），会清系统盘安装的软件与数据、历史任务/工作空间/个人设置保留，约 2 分钟。

@@ -73,8 +73,9 @@ select{background:#0d1526;border:1px solid var(--line);color:var(--txt);border-r
       <h2>🔌 实例保活 <span id="ka-state" class="pill p-off">未启动</span></h2>
       <div class="big" id="ka-uptime">--</div>
       <div class="row"><span>实例 ID</span><b id="ka-id" style="font-size:11px">--</b></div>
-      <div class="row"><span>上次换票</span><b id="ka-last">--</b></div>
+      <div class="row"><span>上次活跃</span><b id="ka-last">--</b></div>
       <div class="row"><span>换票轮数</span><b id="ka-hb">--</b></div>
+      <div class="row"><span>心跳信号</span><b id="ka-heart">--</b></div>
       <div class="row"><span>自愈次数</span><b id="ka-heal">--</b></div>
       <div class="actions">
         <button class="btn primary" id="ka-open">🚀 打开云电脑</button>
@@ -135,7 +136,7 @@ select{background:#0d1526;border:1px solid var(--line);color:var(--txt);border-r
           <input type="time" id="pw-plan-time">
           <button class="btn" id="pw-plan-save">保存计划</button>
         </div>
-        <div class="row" id="pw-plan-hint" style="display:none"><span>提示</span><b>远程模式下计划不可用</b></div>
+        <div class="row" id="pw-plan-hint" style="display:none"><span>提示</span><b>未登录：定时计划需登录后走平台接口</b></div>
       </div>
     </div>
 
@@ -240,6 +241,7 @@ function render() {
   const info = ka.instance_info || {};
   $('ka-id').textContent = ka.instance_id || '--';
   $('ka-hb').textContent = ka.cycles != null ? ka.cycles + ' 轮' : '--';
+  $('ka-heart').textContent = ka.heartbeats ? `${ka.heartbeats} 轮（refresh+heartbeat）` : '--';
   $('ka-heal').textContent = ka.healed != null ? ka.healed + ' 次' : '--';
   $('ka-last').textContent = ka.last_ticket_text || '--';
   // 积分
@@ -253,9 +255,9 @@ function render() {
   // 电源
   const pend = pw.pending_restart;
   const pmode = pw.mode || 'local';
+  const remoteMode = pmode !== 'local';
   $('pw-pending').style.display = pend ? 'inline-block' : 'none';
   $('pw-cancel').style.display = pend ? 'inline-block' : 'none';
-  const remoteMode = pmode !== 'local';
   $('pw-restart').textContent = remoteMode ? '重启云电脑（平台）' : '重启云电脑';
   $('pw-restart').disabled = remoteMode && !auth.ok;
   $('pw-rebuild').disabled = !auth.ok;
@@ -270,15 +272,14 @@ function render() {
   $('pw-queue-cancel').style.display = queued ? 'inline-block' : 'none';
   $('pw-queue-cancel').disabled = !auth.ok;
   const plan = pw.restart_plan || { enabled: false, mode: 'daily', time: '04:30', weekday: 0 };
-  $('pw-plan').textContent = pend
-    ? pw.pending_restart_text
-    : (remoteMode ? '远程模式：定时计划不可用' : (pw.restart_plan_text || '无'));
-  // 计划控件（编辑中不覆盖；远程模式只读）
+  $('pw-plan').textContent = pw.restart_plan_text || '无';
+  // 计划控件（编辑中不覆盖；远程模式下未登录则禁用）
   const planBox = $('pw-plan-box');
   const editing = document.activeElement && planBox.contains(document.activeElement);
   const localMode = pmode === 'local';
-  $('pw-plan-hint').style.display = localMode ? 'none' : 'flex';
-  ['pw-plan-on', 'pw-plan-mode', 'pw-plan-day', 'pw-plan-time', 'pw-plan-save'].forEach((id) => { $(id).disabled = !localMode; });
+  $('pw-plan-hint').style.display = planLocked ? 'flex' : 'none';
+  const planLocked = !localMode && !auth.ok;
+  ['pw-plan-on', 'pw-plan-mode', 'pw-plan-day', 'pw-plan-time', 'pw-plan-save'].forEach((id) => { $(id).disabled = planLocked; });
   if (!editing) {
     $('pw-plan-on').checked = !!plan.enabled;
     $('pw-plan-mode').value = plan.mode;
