@@ -57,7 +57,7 @@ docker compose up -d --build
 - **面板自带登录页（可选）**：未登录访问自动跳到内置登录页（深色风格，错误提示/摇动反馈），密码验证走标准 Basic 凭证（浏览器记住后续免输）；公网/隧道暴露前建议开启
   - Docker：同目录 `.env` 填 `TA_PANEL_USER` / `TA_PANEL_PASSWORD`（或部署平台的 Environment variables），`docker compose up -d` 生效；勿改 `docker-compose.yml`，`git pull` 会冲突
   - 本机：同上环境变量，或 `data/config.json` 写 `{ "panel": { "pass_hash": "<sha256(\"user:密码\") 的 hex>" } }`
-  - 登录页显示用户名提示（`TA_PANEL_HINT=0` 可关）；未认证时 API 一律 401，不会重定向泄露入口
+  - 登录页默认不显示用户名（需在登录页露出提示时设 `TA_PANEL_HINT=1`）；未认证时 API 一律 401，不会重定向泄露入口
   - 公网暴露建议三层叠加：边缘身份（如 Cloudflare Access）+ 面板密码 + origin 只绑回环（`127.0.0.1:8590:8590`）
 - 未开启 Basic Auth 时，任何能访问面板的人可调用 `/api/desktop/open` 拿到进入云电脑的临时票据 URL，请勿裸露
 

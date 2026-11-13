@@ -19,6 +19,8 @@ services:
       - TA_PANEL_USER=${TA_PANEL_USER:-admin}
       - TA_PANEL_PASSWORD=${TA_PANEL_PASSWORD:-}
       - TA_PANEL_PASSWORD_HASH=${TA_PANEL_PASSWORD_HASH:-}
+      # 登录页是否显示用户名提示：默认不显示；需要时设 TA_PANEL_HINT=1
+      - TA_PANEL_HINT=${TA_PANEL_HINT:-}
     volumes:
       - ./data:/app/data
       # 鉴权：页面「账号登录」输入手机号+密码，JWT 自动写入 data/jwt.txt 并自动续期

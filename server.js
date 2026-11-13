@@ -106,7 +106,7 @@ const server = http.createServer(async (req, res) => {
   // 登录页本身不走鉴权（静态页 + 提交到 /api/auth/me 校验）
   const url = new URL(req.url, 'http://x');
   if (req.method === 'GET' && (url.pathname === '/login' || url.pathname === '/login.html')) {
-    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
     res.end(fs.readFileSync(path.join(ROOT, 'public', 'login.html')));
     return;
   }
