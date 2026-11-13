@@ -54,7 +54,7 @@ docker compose up -d --build
 - JWT/密码只保存在本机 `data/` 目录（密码为 AES-256-GCM 密文，密钥在 `data/.secret`），`data/` 已被 .gitignore 排除；控制台默认只监听 127.0.0.1
 - 密码明文仅在登录瞬间存在于内存，接口不回显、配置不可外部写入
 - 重启有 60 秒缓冲与取消；重装跳转官方页面由官方确认流程把关
-- **面板自带登录页（可选）**：未登录访问自动跳到内置登录页（深色风格，错误提示/摇动反馈），密码验证走标准 Basic 凭证（浏览器记住后续免输）；公网/隧道暴露前建议开启
+- **面板自带登录页（可选）**：未登录访问自动跳到内置登录页（深色风格，错误提示/摇动反馈）；验证通过后签发 HttpOnly 会话 Cookie（7 天，改密码即全部失效），期间免重复输入；Basic 照旧支持（curl/脚本带 `-u` 即可）；带节流（10 分钟内连续错 8 次锁定）
   - Docker：同目录 `.env` 填 `TA_PANEL_USER` / `TA_PANEL_PASSWORD`（或部署平台的 Environment variables），`docker compose up -d` 生效；勿改 `docker-compose.yml`，`git pull` 会冲突
   - 本机：同上环境变量，或 `data/config.json` 写 `{ "panel": { "pass_hash": "<sha256(\"user:密码\") 的 hex>" } }`
   - 登录页默认不显示用户名（需在登录页露出提示时设 `TA_PANEL_HINT=1`）；未认证时 API 一律 401，不会重定向泄露入口

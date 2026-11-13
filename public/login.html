@@ -54,15 +54,18 @@ hr{border:none;border-top:1px dashed var(--line);margin:14px 0}
   <div id="hint" style="display:none">
     <hr>
     <div class="cred"><span>用户名</span><b id="hu">admin</b></div>
-    <div class="foot">首次登录成功后浏览器会记住凭证<br>之后访问免重复输入</div>
+    <div class="foot">登录会话 7 天有效，期间访问免重复输入</div>
   </div>
 </div>
 <script>
-// 走标准 Basic：浏览器会把凭证带上并持久保存（关窗再开也不用手输）
+// 会话 Cookie 登录：POST 账号密码 → 服务端签发 HttpOnly Cookie → 跳转首页
 async function login(u, p) {
-  const hdr = 'Basic ' + btoa(unescape(encodeURIComponent(u + ':' + p)));
-  const r = await fetch('/api/auth/me', { headers: { authorization: hdr } });
-  return { status: r.status };
+  const r = await fetch('/api/panel/login', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ user: u, password: p }),
+  });
+  return r;
 }
 const f = document.getElementById('f');
 f.addEventListener('submit', async (e) => {
@@ -76,8 +79,9 @@ f.addEventListener('submit', async (e) => {
   err.style.display = 'none';
   try {
     const r = await login(u, p);
-    if (r.status === 200) { location.href = '/'; return; }
-    err.textContent = r.status === 401 ? '用户名或密码不对' : '服务异常（HTTP ' + r.status + '），稍后再试';
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) { location.href = '/'; return; }
+    err.textContent = j.error || (r.status === 401 ? '用户名或密码不对' : '服务异常（HTTP ' + r.status + '）');
     err.style.display = 'block';
     document.getElementById('box').classList.add('shake');
     setTimeout(() => document.getElementById('box').classList.remove('shake'), 400);

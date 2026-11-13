@@ -103,19 +103,33 @@ function status() {
 
 // ---------- HTTP ----------
 const server = http.createServer(async (req, res) => {
-  // 登录页本身不走鉴权（静态页 + 提交到 /api/auth/me 校验）
+  // 登录页本身不走鉴权（静态页 + 提交到 /api/panel/login 换会话 Cookie）
   const url = new URL(req.url, 'http://x');
   if (req.method === 'GET' && (url.pathname === '/login' || url.pathname === '/login.html')) {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
     res.end(fs.readFileSync(path.join(ROOT, 'public', 'login.html')));
     return;
   }
-  // 登录校验：成功后浏览器自动缓存 Basic 凭证，后续所有请求免输
-  if (req.method === 'GET' && url.pathname === '/api/auth/me') {
-    if (panelAuth.verifyOnly(req)) return json(res, { ok: true, user: panelAuth.user });
-    if (!panelAuth.enabled) return json(res, { ok: true, user: panelAuth.user });
-    res.writeHead(401, { 'content-type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ ok: false, error: '用户名或密码不对' }));
+  // 面板登录：验证账号密码 → 签发会话 Cookie（HttpOnly；Basic 通道照旧支持 API 调用）
+  if (req.method === 'POST' && url.pathname === '/api/panel/login') {
+    let body = '';
+    for await (const c of req) body += c;
+    let b = {};
+    try { b = JSON.parse(body || '{}'); } catch { return json(res, { ok: false, error: '请求格式不对' }, 400); }
+    const r = panelAuth.verifyLogin(b.user, b.password);
+    if (!r.ok) {
+      log.warn('PanelAuth', `面板登录失败：${r.error}`);
+      return json(res, { ok: false, error: r.error }, 401);
+    }
+    res.setHeader('set-cookie', panelAuth.issueCookie(req));
+    log.info('PanelAuth', '面板登录成功（会话 Cookie 已签发，7 天有效）');
+    json(res, { ok: true });
+    return;
+  }
+  // 退出面板登录：清除会话 Cookie
+  if (req.method === 'POST' && url.pathname === '/api/panel/logout') {
+    res.setHeader('set-cookie', panelAuth.clearCookie(req));
+    json(res, { ok: true });
     return;
   }
   // 面板鉴权门禁：页面与所有 API 统一过闸（未登录页面 → 302 登录页；API → 401）
