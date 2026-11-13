@@ -34,7 +34,7 @@ node server.js       # 打开 http://127.0.0.1:8590
 容器内无 Windows 客户端，**直接用页面登录即可**，无需任何 token 文件：
 
 ```powershell
-# 1) 克隆仓库（私有库，密码用 GitHub token）
+# 1) 克隆仓库
 git clone https://github.com/TimerDev/teleagent-dashboard.git
 cd teleagent-dashboard
 # 2) 启动
@@ -44,17 +44,6 @@ docker compose up -d --build
 
 登录后 JWT 写入容器内 `data/jwt.txt`（挂载卷持久化），工具自动接管并按 `reloginDays` 自动重登续期，无需人工维护。
 
-<details><summary>旧方式：手动导出 JWT 文件（兼容保留）</summary>
-
-```powershell
-# 在源云电脑导出 JWT（单行文本）
-python scripts/export_jwt.py > data/jwt.txt
-# 拷贝整个 teleagent-dashboard 目录到目标机， TA_TOKEN_FILE=data/jwt.txt 指定，或直接 docker compose up
-```
-
-> JWT 有效期约 23 天，过期后重新导出替换，容器会自动检测更新（60 秒内）。
-
-</details>
 > Docker 模式下「立即领取」按钮不可用（无客户端 UI），领取请在源机进行或手动领取；状态/心跳/重启均可用。
 
 ## 安全说明
@@ -79,7 +68,6 @@ python scripts/export_jwt.py > data/jwt.txt
 | `power.mode` | **local**=云电脑本机部署（重启可用，shutdown 重启的就是云电脑）；**remote**=Docker 等异地部署（重启自动禁用，避免误重启部署机） | local（Docker 镜像默认 remote） |
 | `power.restart_plan` | 定时重启计划：enabled / mode（daily,weekly）/ time / weekday(0=周日)；面板可配，仅 local 模式生效，领取进行中自动跳过 | false / daily / 04:30 / 0 |
 | `teleagent_dir` | 客户端 data 目录（本机模式） | D:/TeleAgent/data |
-| `token_file` | 明文 JWT 文件（Docker 模式，或环境变量 TA_TOKEN_FILE） | - |
 
 > ⚠️ **部署位置决定重启语义**：`shutdown` 永远作用于"工具所在的那台机器"。只有工具跑在云电脑本机上，重启才是重启云电脑。Docker 部署到 NAS/VPS/其他服务器时，本工具已通过 `TA_MODE=remote`（或 `power.mode: remote`）自动禁用重启按钮并拒绝重启指令；重装为 302 跳转官方页（在你自己的浏览器打开），与部署位置无关。
 

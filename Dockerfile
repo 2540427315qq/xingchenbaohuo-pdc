@@ -1,5 +1,5 @@
 # teleagent-dashboard — TeleAgent 云电脑保活/积分/电源管理控制台
-# 容器内无 Windows 客户端 → 鉴权用 TA_TOKEN_FILE 挂载明文 JWT 文件
+# 容器内无 Windows 客户端 → 鉴权用页面「账号登录」（JWT 自动落盘 data/jwt.txt 并自动续期）
 FROM node:20-alpine
 
 WORKDIR /app
@@ -16,6 +16,4 @@ ENV TA_HOST=0.0.0.0
 EXPOSE 8590
 VOLUME ["/app/data"]
 
-# 首次使用：把源机导出的 JWT（单行文本）挂到 /app/data/jwt.txt
-#   TA_TOKEN_FILE=/app/data/jwt.txt
 CMD ["node", "server.js"]

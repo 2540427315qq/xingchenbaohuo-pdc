@@ -42,9 +42,9 @@ power.setBusyCheck(() => scheduler.running);
 function loadConfig() {
   const def = {
     port: PORT,
-    // token 来源（Windows 客户端路径；Docker 里改用 TA_TOKEN_FILE 直接放明文 JWT 文件）
+    // token 来源（本机客户端自动解密；异地部署用页面账号登录，JWT 落盘 data/jwt.txt 自动接管）
     teleagent_dir: process.env.TA_DIR || 'D:/TeleAgent/data',
-    token_file: process.env.TA_TOKEN_FILE || '',        // 显式 JWT 文件优先
+    token_file: process.env.TA_TOKEN_FILE || '',        // 内部使用：登录 JWT 落盘路径（页面登录后自动设置）
     // 账号密码登录（异地部署主力：页面登录 → JWT 落盘 data/jwt.txt，自动重登续期）
     auth: { account: '', passwordEnc: '', autoRelogin: true, reloginDays: 7 },
     // 保活（ticket 模式：instance/connect 换票 + 自愈 instance/start）
