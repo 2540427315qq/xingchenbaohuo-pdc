@@ -36,9 +36,14 @@ node server.js       # 打开 http://127.0.0.1:8590 → 「🔑 账号登录」�
 git clone https://github.com/TimerDev/teleagent-dashboard.git
 cd teleagent-dashboard
 # 2) 启动
+cp .env.example .env   # 首次部署；编辑 .env 填 TA_PANEL_PASSWORD（公网/隧道必须）
 docker compose up -d --build
 # 3) 打开 http://<目标机IP>:8590 → 「🔑 账号登录」卡片 → 输入手机号+密码登录
 ```
+
+> 面板登录密码不写在 `docker-compose.yml` 里（避免 `git pull` 冲突），统一由同目录 `.env`
+> 或部署平台（Portainer / NAS 面板等）的 Environment variables 注入；`.env` 已被 .gitignore 排除。
+> 修改 `.env` 后重新 `docker compose up -d` 即生效（配置变了会自动重建容器）。
 
 登录后 JWT 写入容器内 `data/jwt.txt`（挂载卷持久化），工具自动接管并按 `reloginDays` 自动重登续期，无需人工维护。
 
@@ -50,7 +55,7 @@ docker compose up -d --build
 - 密码明文仅在登录瞬间存在于内存，接口不回显、配置不可外部写入
 - 重启有 60 秒缓冲与取消；重装跳转官方页面由官方确认流程把关
 - **面板自带 Basic Auth（可选）**：公网/隧道暴露前建议开启，页面与全部 API 统一过闸
-  - Docker：`docker-compose.yml` 放开 `TA_PANEL_USER` / `TA_PANEL_PASSWORD` 注释并设强密码
+  - Docker：同目录 `.env` 填 `TA_PANEL_USER` / `TA_PANEL_PASSWORD`（或部署平台的 Environment variables），`docker compose up -d` 生效；勿改 `docker-compose.yml`，`git pull` 会冲突
   - 本机：同上环境变量，或 `data/config.json` 写 `{ "panel": { "pass_hash": "<sha256(\"user:密码\") 的 hex>" } }`
   - 公网暴露建议三层叠加：边缘身份（如 Cloudflare Access）+ 面板密码 + origin 只绑回环（`127.0.0.1:8590:8590`）
 - 未开启 Basic Auth 时，任何能访问面板的人可调用 `/api/desktop/open` 拿到进入云电脑的临时票据 URL，请勿裸露
