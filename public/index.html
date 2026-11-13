@@ -52,6 +52,7 @@ h1 .dot{width:10px;height:10px;border-radius:50%;background:var(--ok);box-shadow
 .mbox p{color:var(--sub);font-size:13px;margin-bottom:16px}
 .mfoot{display:flex;justify-content:flex-end;gap:8px}
 input[type=time]{background:#0d1526;border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:4px 8px}
+input[type=number]{background:#0d1526;border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:4px 8px;width:88px}
 select{background:#0d1526;border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:4px 6px;font-size:12px}
 .planbox{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
 .planbox label{font-size:12px;color:var(--sub);display:flex;align-items:center;gap:6px}
@@ -80,6 +81,13 @@ select{background:#0d1526;border:1px solid var(--line);color:var(--txt);border-r
         <button class="btn" id="ka-toggle">暂停/恢复</button>
         <button class="btn" id="ka-reconnect">立即保活</button>
       </div>
+      <div class="planbox">
+        <label>保活间隔（秒）</label>
+        <div class="planrow">
+          <input type="number" id="cfg-refresh" min="60" step="30">
+          <button class="btn" id="ka-refresh-save">保存</button>
+        </div>
+      </div>
     </div>
 
     <!-- 签到积分 -->
@@ -91,6 +99,13 @@ select{background:#0d1526;border:1px solid var(--line);color:var(--txt);border-r
       <div class="actions">
         <button class="btn primary" id="pt-claim">立即领取</button>
         <button class="btn" id="pt-refresh">刷新状态</button>
+      </div>
+      <div class="planbox">
+        <label>每日领取时间</label>
+        <div class="planrow">
+          <input type="time" id="cfg-time">
+          <button class="btn" id="pt-time-save">保存</button>
+        </div>
       </div>
     </div>
 
@@ -179,9 +194,7 @@ select{background:#0d1526;border:1px solid var(--line);color:var(--txt);border-r
   </div>
 
   <div class="sub" style="margin-top:14px">
-    设置领取时间：<input type="time" id="cfg-time"> <button class="btn" id="cfg-save">保存</button>
-    　保活间隔(秒)：<input type="number" id="cfg-refresh" min="60" style="width:70px;background:#0d1526;border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:4px 8px"> 
-    　企微 webhook：<input type="text" id="cfg-webhook" placeholder="https://qyapi.weixin.qq.com/..." style="width:220px;background:#0d1526;border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:4px 8px"> <button class="btn" id="cfg-notify-save">保存通知</button>
+    企微 webhook：<input type="text" id="cfg-webhook" placeholder="https://qyapi.weixin.qq.com/..." style="width:220px;background:#0d1526;border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:4px 8px"> <button class="btn" id="cfg-notify-save">保存通知</button>
   </div>
 </div>
 
@@ -452,11 +465,23 @@ $('pw-plan-save').onclick = async () => {
   toast(j.ok ? ($('pw-plan-on').checked ? `✅ 计划已保存：${$('pw-plan-mode').value === 'weekly' ? '每周' + ['日','一','二','三','四','五','六'][parseInt($('pw-plan-day').value,10)] : '每日'} ${$('pw-plan-time').value || '04:30'}` : '已停用定时重启') : '保存失败：' + (j.error || '未知'), !!j.ok);
   poll();
 };
-$('cfg-save').onclick = async () => {
+$('ka-refresh-save').onclick = async () => {
   const refresh = parseInt($('cfg-refresh').value || '300', 10);
+  if (!refresh || refresh < 60) return toast('保活间隔不能小于 60 秒', false);
   const r = await fetch('/api/config', { method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ points: { claim_time: $('cfg-time').value }, keepalive: { refreshSec: refresh } }) });
-  toast(r.ok ? '已保存（领取时间 + 保活间隔）' : '保存失败', r.ok);
+    body: JSON.stringify({ keepalive: { refreshSec: refresh } }) });
+  const j = await r.json().catch(() => ({}));
+  toast(j.ok ? `✅ 保活间隔已保存：${refresh} 秒` : '保存失败：' + (j.error || ''), !!j.ok);
+  poll();
+};
+$('pt-time-save').onclick = async () => {
+  const t = $('cfg-time').value;
+  if (!/^\d{2}:\d{2}$/.test(t || '')) return toast('先选一个领取时间', false);
+  const r = await fetch('/api/config', { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ points: { claim_time: t } }) });
+  const j = await r.json().catch(() => ({}));
+  toast(j.ok ? `✅ 每日领取时间已保存：${t}` : '保存失败：' + (j.error || ''), !!j.ok);
+  poll();
 };
 $('cfg-notify-save').onclick = async () => {
   const hook = $('cfg-webhook').value.trim();
