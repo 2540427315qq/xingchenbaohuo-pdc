@@ -125,22 +125,24 @@ select{background:#0d1526;border:1px solid var(--line);color:var(--txt);border-r
       </div>
     </div>
 
-    <!-- 机器状态 -->
+    <!-- 部署机状态 -->
     <div class="card">
-      <h2>🖥️ 机器状态</h2>
+      <h2>🖥️ 部署机状态 <span id="sy-scope" class="pill p-off" style="font-size:10px">本机</span></h2>
+      <div class="row"><span>主机名</span><b id="sy-host">--</b></div>
+      <div class="row"><span>系统</span><b id="sy-os">--</b></div>
       <div class="row"><span>运行时长</span><b id="sy-uptime">--</b></div>
       <div class="row"><span>CPU</span><b id="sy-cpu">--%</b></div>
       <div class="bar"><i id="sy-cpu-bar" style="width:0"></i></div>
       <div class="row"><span>内存</span><b id="sy-mem">--</b></div>
       <div class="bar"><i id="sy-mem-bar" style="width:0;background:linear-gradient(90deg,var(--violet),#f472b6)"></i></div>
-      <div class="row"><span>主机名</span><b id="sy-host">--</b></div>
-      <div class="row"><span>凭据有效期</span><b id="sy-auth">--</b></div>
+      <div class="sub" style="margin-top:6px">本卡片为工具所在机器（部署机）自身状态；云电脑状态看「实例保活」卡片</div>
     </div>
 
     <!-- 账号登录 -->
     <div class="card">
       <h2>🔑 账号登录 <span id="lg-pill" class="pill p-off">--</span></h2>
       <div class="row"><span>当前凭据</span><b id="lg-source">--</b></div>
+      <div class="row"><span>凭据有效期</span><b id="lg-days">--</b></div>
       <div class="row"><span>已存账号</span><b id="lg-account">--</b></div>
       <div class="row"><span>自动续期</span><b id="lg-auto">--</b></div>
       <input type="text" class="inp" id="lg-user" placeholder="手机号 / 账号" autocomplete="off">
@@ -249,7 +251,10 @@ function render() {
   $('sy-mem').textContent = `${sy.mem_used_gb} / ${sy.mem_total_gb} GB (${sy.mem_pct}%)`;
   $('sy-mem-bar').style.width = sy.mem_pct + '%';
   $('sy-host').textContent = sy.hostname;
-  $('sy-auth').textContent = auth.ok ? `${auth.expires_text}（剩 ${auth.days_left} 天）` : (auth.error || '未加载');
+  $('sy-os').textContent = sy.platform;
+  $('lg-days') && ($('lg-days').textContent = auth.ok ? `${auth.expires_text}（剩 ${auth.days_left} 天）` : (auth.error || '未加载'));
+  const scopeMap = { local: '本机', docker: '容器' };
+  $('sy-scope').textContent = scopeMap[sy.scope] || '本机';
   // 登录
   const lp = $('lg-pill');
   if (auth.ok) { lp.className = 'pill p-ok'; lp.textContent = auth.has_password ? '密码登录' : 'JWT 文件'; }
