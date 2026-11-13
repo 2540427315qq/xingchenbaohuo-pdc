@@ -150,6 +150,46 @@ const server = http.createServer(async (req, res) => {
       }
       return;
     }
+    // 发送短信验证码
+    if (req.method === 'POST' && url.pathname === '/api/auth/sms') {
+      let body = '';
+      for await (const c of req) body += c;
+      const b = JSON.parse(body || '{}');
+      const mobile = String(b.mobile || '').trim();
+      if (!/^1\d{10}$/.test(mobile)) return json(res, { ok: false, error: '手机号格式不对' }, 400);
+      try {
+        json(res, await login.sendSmsCode(mobile));
+      } catch (e) {
+        log.error('Login', `发送验证码失败：${e.message}`);
+        json(res, { ok: false, error: e.message }, 400);
+      }
+      return;
+    }
+    // 短信验证码登录
+    if (req.method === 'POST' && url.pathname === '/api/auth/smslogin') {
+      let body = '';
+      for await (const c of req) body += c;
+      const b = JSON.parse(body || '{}');
+      const mobile = String(b.mobile || '').trim();
+      const code = String(b.code || '').trim();
+      if (!/^1\d{10}$/.test(mobile) || !/^\d{4,8}$/.test(code)) return json(res, { ok: false, error: '手机号或验证码格式不对' }, 400);
+      try {
+        const r = await login.smsLogin(mobile, code);
+        const jwt = r.operationToken;
+        const jp = login.jwtPath();
+        fs.writeFileSync(jp, jwt + '\n', { mode: 0o600 });
+        config.token_file = jp;
+        // 手机号存为账号标识（自动续期短信重发需要）
+        config.auth = Object.assign({}, config.auth, { account: mobile, passwordEnc: '' });
+        fs.writeFileSync(config._file, JSON.stringify({ ...config, _file: undefined }, null, 2));
+        auth.acceptJwt(jwt, 'sms-login');
+        json(res, { ok: true, expires_text: auth.expiryText(), days_left: auth.status().days_left });
+      } catch (e) {
+        log.error('Login', `短信登录失败（${login.maskMobile(mobile)}）：${e.message}`);
+        json(res, { ok: false, error: e.message }, 400);
+      }
+      return;
+    }
     // 账号密码登录：换取 JWT 并接管凭据（密码密文存 data/config.json，明文不落盘）
     if (req.method === 'POST' && url.pathname === '/api/auth/login') {
       let body = '';
