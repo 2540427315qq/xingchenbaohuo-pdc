@@ -163,6 +163,7 @@ const server = http.createServer(async (req, res) => {
         const r = await auth.loginAndStore(account, password, { remember: b.remember !== false });
         json(res, r);
       } catch (e) {
+        log.error('Login', `登录失败（${account}）：${e.message}`);
         json(res, { ok: false, error: e.message }, 400);
       }
       return;
