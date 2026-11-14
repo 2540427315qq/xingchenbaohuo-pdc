@@ -79,9 +79,13 @@ docker compose up -d --build
 | `panel.pass_hash` | 面板 Basic Auth（sha256("user:密码") 的 hex；不设则不启用，优先级：env `TA_PANEL_PASSWORD_HASH` > `TA_PANEL_PASSWORD` > 此处） | 空 |
 | `points.claim_time` | 每日领取时间 | 08:05 |
 | `points.catchup_on_start` | 启动时补领 | true |
-| `power.mode` | **local**=云电脑本机部署（`shutdown` 重启的就是云电脑，另提供 60 秒倒计时重启）；**remote**=Docker 等异地部署（本地 `shutdown` 自动禁用，避免误重启部署机；重启按钮改走平台接口 `instance/restart`，效果等同官方「重启云电脑」） | local（Docker 镜像默认 remote） |
+| `power.mode` | **local**=云电脑本机部署（`shutdown` 重启的就是云电脑，另提供 60 秒倒计时重启）；**remote**=Docker 等异地部署（本地 `shutdown` 自动禁用，避免误重启部署机；重启按钮改走平台接口 `instance/restart`，效果等同官方「重启云电脑」）。优先级：env `TA_MODE` > 此配置 | local（Docker 镜像默认 remote） |
 | `power.restart_plan` | 定时重启计划：enabled / mode（daily,weekly）/ time / weekday(0=周日)；面板可配，**local 走本地 shutdown（30 秒缓冲），remote 走平台 `instance/restart`**；领取进行中自动跳过 | false / daily / 04:30 / 0 |
 
-> ⚠️ **两种重启的区别**：`shutdown` 永远作用于“工具所在的那台机器”，只有工具跑在云电脑本机上才是重启云电脑；异地部署（Docker/NAS/VPS）时本地 `shutdown` 被自动禁用（否则会重启部署机），按钮改调平台接口 `POST /teleagent-manager/v1/instance/restart`（body `{"id":"<实例id>"}`，与官方设置页「重启云电脑」完全一致）——任意部署位置都能用，不重装、不影响数据。重置服务走 `instance/rebuild`（需在面板二次确认并输入 RESET 才会执行），会清系统盘安装的软件与数据、历史任务/工作空间/个人设置保留，约 2 分钟。
+> ⚠️ **「重启云电脑」的两种走法**——由部署模式 `power.mode` 决定，优先级：**环境变量 `TA_MODE` > `data/config.json` 的 `power.mode` > 默认 `local`**（本机直跑默认 local；`docker-compose.yml` 已内置 `TA_MODE=remote`，Docker 部署无需配置）。
+> - **remote**（Docker/NAS/VPS 异地部署）：按钮直调平台接口 `POST /teleagent-manager/v1/instance/restart`（body `"{\"id\":\"<实例id>\"}"`，与官方设置页「重启云电脑」完全一致）——不重装、不影响数据，服务随系统自动启动，约 1 分钟。
+> - **local**（工具跑在云电脑本机，部署机即云电脑）：走本地 `shutdown` 60 秒倒计时（可取消）；定时重启计划在 local 下为 30 秒缓冲。remote 模式下本地 `shutdown` 被自动禁用（否则会误重启部署机而非云电脑）。
+>
+> 重置云电脑服务走 `instance/rebuild`（需在面板二次确认并输入 RESET 才会执行），会清系统盘安装的软件与数据、历史任务/工作空间/个人设置保留，约 2 分钟。
 
 > AI生成
