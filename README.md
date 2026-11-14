@@ -81,7 +81,6 @@ docker compose up -d --build
 | `points.catchup_on_start` | 启动时补领 | true |
 | `power.mode` | **local**=云电脑本机部署（`shutdown` 重启的就是云电脑，另提供 60 秒倒计时重启）；**remote**=Docker 等异地部署（本地 `shutdown` 自动禁用，避免误重启部署机；重启按钮改走平台接口 `instance/restart`，效果等同官方「重启云电脑」） | local（Docker 镜像默认 remote） |
 | `power.restart_plan` | 定时重启计划：enabled / mode（daily,weekly）/ time / weekday(0=周日)；面板可配，**local 走本地 shutdown（30 秒缓冲），remote 走平台 `instance/restart`**；领取进行中自动跳过 | false / daily / 04:30 / 0 |
-| `teleagent_dir` | 客户端 data 目录（本机模式） | D:/TeleAgent/data |
 
 > ⚠️ **两种重启的区别**：`shutdown` 永远作用于“工具所在的那台机器”，只有工具跑在云电脑本机上才是重启云电脑；异地部署（Docker/NAS/VPS）时本地 `shutdown` 被自动禁用（否则会重启部署机），按钮改调平台接口 `POST /teleagent-manager/v1/instance/restart`（body `{"id":"<实例id>"}`，与官方设置页「重启云电脑」完全一致）——任意部署位置都能用，不重装、不影响数据。重置服务走 `instance/rebuild`（需在面板二次确认并输入 RESET 才会执行），会清系统盘安装的软件与数据、历史任务/工作空间/个人设置保留，约 2 分钟。
 

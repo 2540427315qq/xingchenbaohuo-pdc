@@ -372,9 +372,9 @@ $('lg-relogin').onclick = async () => {
   toast(r.ok ? `✅ 已续期，有效期至 ${r.expires_text || ''}` : '续期失败：' + (r.error || '未知'), !!r.ok);
   poll();
 };
-$('lg-logout').onclick = () => confirmBox('清除登录凭据', '将删除已保存的账号密码与 data/jwt.txt，并尝试回退到本机客户端凭据（Docker 环境下凭据将清空，需重新登录）。确定继续？', async () => {
+$('lg-logout').onclick = () => confirmBox('清除登录凭据', '将删除已保存的账号密码与 data/jwt.txt，清除后保活中断，需重新登录恢复。确定继续？', async () => {
   const r = await post('/api/auth/logout');
-  toast(r.ok ? (r.restored ? '已回退到本机客户端凭据' : '已清除登录（无客户端凭据可回退）') : '操作失败', !!r.ok);
+  toast(r.ok ? '已清除登录凭据' : '操作失败', !!r.ok);
   poll();
 });
 $('pt-claim').onclick = async () => {
