@@ -83,5 +83,3 @@ docker compose up -d --build
 > 重置云电脑服务走 `instance/rebuild`（需在面板二次确认并输入 RESET 才会执行），会清系统盘安装的软件与数据、历史任务/工作空间/个人设置保留，约 2 分钟。
 >
 > 🔐 **首次部署必配面板账号密码**：`.env` 里设 `TA_PANEL_USER` + `TA_PANEL_PASSWORD`（或 `TA_PANEL_PASSWORD_HASH`，即 sha256("user:密码") 的 hex，二选一）——这是打开面板时的登录凭据；公网/隧道暴露前必须设置，否则任何能访问面板的人可调用 `/api/desktop/open` 拿到进入云电脑的临时票据 URL。
-
-> AI生成
