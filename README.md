@@ -1,6 +1,6 @@
 # teleagent-dashboard
 
-TeleAgent 云电脑的**实例保活 + 一键打开云电脑 + 每日积分 + 电源管理 + 机器状态**控制台（为异地部署设计，也可以跑在云电脑本机）。
+TeleAgent 云电脑的**实例保活 + 一键打开云电脑 + 每日积分 + 电源管理 + 机器状态**控制台，为异地部署（Docker/NAS/VPS 或任意可访问平台的机器）设计。
 
 保活机制参考社区逆向成果（teleagent-keepalive v1.3.0）：调用平台实例管理 API（`teleagent-manager/v1`）实现换票保活与自动拉起。凭据通过账号密码登录获取，自动续期。
 
@@ -9,7 +9,7 @@ TeleAgent 云电脑的**实例保活 + 一键打开云电脑 + 每日积分 + �
 - 🔌 **实例保活（换票 + 官方心跳）**：每 5 分钟 `instance/connect` 换票，并同时发官方 `instance/refresh` / `heartbeat` 活跃信号（面板可见心跳轮数）；发现实例关机/排队时自动 `instance/start` **远程拉起**，排队中可一键 `instance/cancel` 取消
 - 🚀 **一键打开云电脑**：页面按钮直达官方网页端（临时票据 URL，点击即用）
 - 🎁 **每日积分**：自动/手动领取积分福利社 100 积分（平台 API，任意部署环境可用），状态实时展示
-- ⚡ **电源管理**（均走平台接口，任意部署位置可用）：**重启云电脑**（`instance/restart`，与官方「恢复与重置」同一动作）、**重置云电脑服务**（`instance/rebuild`，页面二次确认+输入 RESET 后直调）、**平台服务状态**（`service/status`，10 分钟轮询）；本机部署另有 60 秒倒计时重启（可取消）；**定时重启计划**（local 走本地 shutdown，remote 走 `instance/restart`）
+- ⚡ **电源管理**（均走平台接口，任意部署位置可用）：**重启云电脑**（`instance/restart`，与官方「恢复与重置」同一动作）、**重置云电脑服务**（`instance/rebuild`，页面二次确认+输入 RESET 后直调）、**平台服务状态**（`service/status`，10 分钟轮询）、**定时重启计划**（自动调 `instance/restart`）
 - 🔑 **账号密码登录**：任意部署环境打开页面即可登录获取凭据（滑块验证码自动识别），登录态快过期时自动重登
 - 🖥️ **机器状态**：CPU/内存/运行时长/凭据有效期
 - 📢 **企微通知**：掉线/自动拉起/积分到账推送（webhook，带冷却去重）
@@ -36,7 +36,7 @@ node server.js       # 打开 http://127.0.0.1:8590 → 「🔑 账号登录」�
 git clone https://github.com/TimerDev/teleagent-dashboard.git
 cd teleagent-dashboard
 # 2) 启动
-cp .env.example .env   # 首次部署；编辑 .env 填 TA_PANEL_PASSWORD（公网/隧道必须）
+cp .env.example .env   # 首次部署必改：填 TA_PANEL_USER / TA_PANEL_PASSWORD（面板登录保护，公网/隧道暴露前必须）
 docker compose up -d --build
 # 3) 打开 http://<目标机IP>:8590 → 「🔑 账号登录」卡片 → 输入手机号+密码登录
 ```
@@ -58,7 +58,7 @@ docker compose up -d --build
 
 - JWT/密码只保存在本机 `data/` 目录（密码为 AES-256-GCM 密文，密钥在 `data/.secret`），`data/` 已被 .gitignore 排除；控制台默认只监听 127.0.0.1
 - 密码明文仅在登录瞬间存在于内存，接口不回显、配置不可外部写入
-- 本机模式重启有 60 秒缓冲与取消；重启/重置均走官方接口（`instance/restart` / `instance/rebuild`），重置需页面二次确认+输入 RESET
+- 重启/重置均走官方接口（`instance/restart` / `instance/rebuild`），重置需页面二次确认+输入 RESET
 - **面板自带登录页（可选）**：未登录访问自动跳到内置登录页（深色风格，错误提示/摇动反馈）；验证通过后签发 HttpOnly 会话 Cookie（7 天，改密码即全部失效），期间免重复输入；Basic 照旧支持（curl/脚本带 `-u` 即可）；带节流（10 分钟内连续错 8 次锁定）
   - Docker：同目录 `.env` 填 `TA_PANEL_USER` / `TA_PANEL_PASSWORD`（或部署平台的 Environment variables），`docker compose up -d` 生效；勿改 `docker-compose.yml`，`git pull` 会冲突
   - 本机：同上环境变量，或 `data/config.json` 写 `{ "panel": { "pass_hash": "<sha256(\"user:密码\") 的 hex>" } }`
@@ -79,13 +79,11 @@ docker compose up -d --build
 | `panel.pass_hash` | 面板 Basic Auth（sha256("user:密码") 的 hex；不设则不启用，优先级：env `TA_PANEL_PASSWORD_HASH` > `TA_PANEL_PASSWORD` > 此处） | 空 |
 | `points.claim_time` | 每日领取时间 | 08:05 |
 | `points.catchup_on_start` | 启动时补领 | true |
-| `power.mode` | **local**=云电脑本机部署（`shutdown` 重启的就是云电脑，另提供 60 秒倒计时重启）；**remote**=Docker 等异地部署（本地 `shutdown` 自动禁用，避免误重启部署机；重启按钮改走平台接口 `instance/restart`，效果等同官方「重启云电脑」）。优先级：env `TA_MODE` > 此配置 | local（Docker 镜像默认 remote） |
-| `power.restart_plan` | 定时重启计划：enabled / mode（daily,weekly）/ time / weekday(0=周日)；面板可配，**local 走本地 shutdown（30 秒缓冲），remote 走平台 `instance/restart`**；领取进行中自动跳过 | false / daily / 04:30 / 0 |
+| `power.restart_plan` | 定时重启计划：enabled / mode（daily,weekly）/ time / weekday(0=周日)；面板可配，自动调平台 `instance/restart` 重启云电脑；领取进行中自动跳过 | false / daily / 04:30 / 0 |
 
-> ⚠️ **「重启云电脑」的两种走法**——由部署模式 `power.mode` 决定，优先级：**环境变量 `TA_MODE` > `data/config.json` 的 `power.mode` > 默认 `local`**（本机直跑默认 local；`docker-compose.yml` 已内置 `TA_MODE=remote`，Docker 部署无需配置）。
-> - **remote**（Docker/NAS/VPS 异地部署）：按钮直调平台接口 `POST /teleagent-manager/v1/instance/restart`（body `"{\"id\":\"<实例id>\"}"`，与官方设置页「重启云电脑」完全一致）——不重装、不影响数据，服务随系统自动启动，约 1 分钟。
-> - **local**（工具跑在云电脑本机，部署机即云电脑）：走本地 `shutdown` 60 秒倒计时（可取消）；定时重启计划在 local 下为 30 秒缓冲。remote 模式下本地 `shutdown` 被自动禁用（否则会误重启部署机而非云电脑）。
->
+> ⚠️ **重启云电脑**：面板按钮与定时重启计划均调用平台接口 `POST /teleagent-manager/v1/instance/restart`（body `{"id":"<实例id>"}`，与官方设置页「重启云电脑」完全一致）——任意部署位置可用，不重装、不影响数据，服务随系统自动启动，约 1 分钟恢复。
 > 重置云电脑服务走 `instance/rebuild`（需在面板二次确认并输入 RESET 才会执行），会清系统盘安装的软件与数据、历史任务/工作空间/个人设置保留，约 2 分钟。
+>
+> 🔐 **首次部署必配面板账号密码**：`.env` 里设 `TA_PANEL_USER` + `TA_PANEL_PASSWORD`（或 `TA_PANEL_PASSWORD_HASH`，即 sha256("user:密码") 的 hex，二选一）——这是打开面板时的登录凭据；公网/隧道暴露前必须设置，否则任何能访问面板的人可调用 `/api/desktop/open` 拿到进入云电脑的临时票据 URL。
 
 > AI生成

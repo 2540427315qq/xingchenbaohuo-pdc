@@ -53,10 +53,8 @@ function loadConfig() {
     keepalive: { enabled: true, mode: 'ticket', refreshSec: 300 },
     // 积分（poll_minutes：认证 API 定期轮询，兼作账号活动心跳）
     points: { claim_time: '08:05', catchup_on_start: true, poll_minutes: 10 },
-    // 电源（local=云电脑本机部署，本地 shutdown 可用；remote=异地部署，重启走平台接口）
+    // 电源：定时重启计划（统一走平台 instance/restart，重启云电脑不动部署机）
     power: {
-      mode: process.env.TA_MODE || 'local',
-      // 定时重启计划（面板可配；local 走本地 shutdown，remote 走平台 instance/restart）
       restart_plan: { enabled: false, mode: 'daily', time: '04:30', weekday: 0 },
     },
     // 通知（企业微信 webhook，掉线/拉起/积分事件推送）
@@ -70,8 +68,6 @@ function loadConfig() {
   const merged = deepMerge(def, cur);
   fs.writeFileSync(fp, JSON.stringify(merged, null, 2));
   merged._file = fp;
-  // TA_MODE 仅作运行时覆盖，不落盘（避免临时环境变量污染持久配置）
-  if (process.env.TA_MODE) merged.power = Object.assign({}, merged.power || {}, { mode: process.env.TA_MODE });
   return merged;
 }
 function deepMerge(a, b) {
@@ -292,14 +288,7 @@ const server = http.createServer(async (req, res) => {
       json(res, r.ok ? { ok: true } : { ok: false, error: r.error || '未配置 webhook' }, r.ok ? 200 : 400);
       return;
     }
-    // 电源：重启（倒计时；仅 local 模式，shutdown 作用于本机）
-    if (req.method === 'POST' && url.pathname === '/api/power/restart') {
-      const sec = Math.max(30, parseInt(url.searchParams.get('delay') || '60', 10));
-      const r = power.scheduleRestart(sec);
-      json(res, r);
-      return;
-    }
-    // 平台重启（任意部署模式）：调用平台 instance/restart，不动部署机
+    // 平台重启：调用平台 instance/restart，重启云电脑本身，不动部署机
     if (req.method === 'POST' && url.pathname === '/api/power/platform-restart') {
       if (!auth.status().ok) return json(res, { ok: false, error: '未登录，无法调用平台接口' }, 400);
       try {
@@ -310,17 +299,13 @@ const server = http.createServer(async (req, res) => {
       }
       return;
     }
-    if (req.method === 'POST' && url.pathname === '/api/power/cancel') {
-      json(res, power.cancelRestart());
-      return;
-    }
     if (req.method === 'POST' && url.pathname === '/api/config') {
       let body = '';
       for await (const c of req) body += c;
       const patch = JSON.parse(body || '{}');
       const allowed = ['points', 'keepalive', 'notify'];
       for (const k of allowed) if (patch[k]) config[k] = deepMerge(config[k], patch[k]);
-      // power 仅允许改 restart_plan（mode 关系安全门禁，禁止外部写入）
+      // power 仅允许改 restart_plan（安全门禁，禁止外部写入其他字段）
       if (patch.power && patch.power.restart_plan && typeof patch.power.restart_plan === 'object') {
         const rp = patch.power.restart_plan;
         config.power = Object.assign({}, config.power || {}, {
