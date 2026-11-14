@@ -160,21 +160,6 @@ select{background:#0d1526;border:1px solid var(--line);color:var(--txt);border-r
       <div class="row"><span>凭据有效期</span><b id="lg-days">--</b></div>
       <div class="row"><span>已存账号</span><b id="lg-account">--</b></div>
       <div class="row"><span>自动续期</span><b id="lg-auto">--</b></div>
-      <div class="actions" style="margin-top:4px">
-        <button class="btn" id="lg-mode-sms">短信登录</button>
-        <button class="btn" id="lg-mode-pwd" style="display:none">账号密码</button>
-      </div>
-      <div id="lg-sms-box" style="display:none">
-        <input type="text" class="inp" id="lg-sms-mobile" placeholder="手机号" autocomplete="off" maxlength="11">
-        <div style="display:flex;gap:6px">
-          <input type="text" class="inp" id="lg-sms-code" placeholder="验证码" autocomplete="off" maxlength="6" style="flex:1">
-          <button class="btn" id="lg-sms-send" style="white-space:nowrap">获取验证码</button>
-        </div>
-        <div class="actions">
-          <button class="btn primary" id="lg-sms-login">登录</button>
-        </div>
-        <div class="sub">验证码会发到手机；触发风控时需到官网过行为验证后重试</div>
-      </div>
       <div id="lg-pwd-box">
         <input type="text" class="inp" id="lg-user" placeholder="用户名" autocomplete="off">
       <input type="password" class="inp" id="lg-pass" placeholder="密码" autocomplete="new-password">
@@ -382,54 +367,6 @@ $('lg-login').onclick = async () => {
   } catch (e) { toast('登录失败：' + e.message, false); }
   btn.disabled = false; btn.textContent = '登录获取凭据';
 };
-// ---------- 短信验证码登录 ----------
-let smsCooldown = 0;
-$('lg-mode-sms').onclick = () => {
-  $('lg-mode-sms').style.display = 'none';
-  $('lg-mode-pwd').style.display = '';
-  $('lg-sms-box').style.display = '';
-  $('lg-pwd-box').style.display = 'none';
-};
-$('lg-mode-pwd').onclick = () => {
-  $('lg-mode-sms').style.display = '';
-  $('lg-mode-pwd').style.display = 'none';
-  $('lg-sms-box').style.display = 'none';
-  $('lg-pwd-box').style.display = '';
-};
-$('lg-sms-send').onclick = async () => {
-  const mobile = $('lg-sms-mobile').value.trim();
-  if (!/^1\d{10}$/.test(mobile)) return toast('手机号格式不对', false);
-  if (smsCooldown > Date.now()) return toast(`请 ${(Math.ceil((smsCooldown - Date.now()) / 1000))} 秒后再发`, false);
-  const btn = $('lg-sms-send');
-  btn.disabled = true; btn.textContent = '发送中…';
-  try {
-    const r = await post('/api/auth/sms', { mobile });
-    if (r.ok) {
-      toast('✅ 验证码已发送');
-      smsCooldown = Date.now() + 60_000;
-      const tick = setInterval(() => {
-        const left = Math.ceil((smsCooldown - Date.now()) / 1000);
-        if (left <= 0) { clearInterval(tick); btn.disabled = false; btn.textContent = '获取验证码'; return; }
-        btn.textContent = left + '秒后重发';
-      }, 1000);
-    } else { toast('发送失败：' + (r.error || '未知'), false); btn.disabled = false; btn.textContent = '获取验证码'; }
-  } catch (e) { toast('发送失败：' + e.message, false); btn.disabled = false; btn.textContent = '获取验证码'; }
-};
-$('lg-sms-login').onclick = async () => {
-  const mobile = $('lg-sms-mobile').value.trim();
-  const code = $('lg-sms-code').value.trim();
-  if (!/^1\d{10}$/.test(mobile)) return toast('手机号格式不对', false);
-  if (!/^\d{4,8}$/.test(code)) return toast('验证码格式不对', false);
-  const btn = $('lg-sms-login');
-  btn.disabled = true; btn.textContent = '登录中…';
-  try {
-    const r = await post('/api/auth/smslogin', { mobile, code });
-    toast(r.ok ? `✅ 登录成功，凭据有效期至 ${r.expires_text || ''}` : '登录失败：' + (r.error || '未知'), !!r.ok);
-    if (r.ok) { $('lg-sms-code').value = ''; poll(); }
-  } catch (e) { toast('登录失败：' + e.message, false); }
-  btn.disabled = false; btn.textContent = '登录';
-};
-
 $('lg-relogin').onclick = async () => {
   const r = await post('/api/auth/relogin');
   toast(r.ok ? `✅ 已续期，有效期至 ${r.expires_text || ''}` : '续期失败：' + (r.error || '未知'), !!r.ok);

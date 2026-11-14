@@ -1,7 +1,7 @@
 // teleagent-dashboard — 会话保活 + 每日积分 + 电源管理 + 机器状态
 // 面向 TeleAgent 平台（agent.teleai.com.cn），参考 muyicn/ctyun-dashboard 的架构思路。
-// 鉴权：页面「账号登录」（密码换取 JWT 落盘 data/jwt.txt，快过期时自动重登），
-//       亦支持短信验证码登录；密码以 AES-256-GCM 密文存 data/config.json。
+// 鉴权：页面「账号登录」（密码换取 JWT 落盘 data/jwt.txt，快过期时自动重登）；
+//       密码以 AES-256-GCM 密文存 data/config.json。
 // 用法：node server.js  （配置见 data/config.json，首次运行自动生成）
 'use strict';
 
@@ -242,46 +242,6 @@ const server = http.createServer(async (req, res) => {
       } catch (e) {
         log.error('Claim', `API 领取失败: ${e.message}`);
         json(res, { ok: false, error: e.message }, 500);
-      }
-      return;
-    }
-    // 发送短信验证码
-    if (req.method === 'POST' && url.pathname === '/api/auth/sms') {
-      let body = '';
-      for await (const c of req) body += c;
-      const b = JSON.parse(body || '{}');
-      const mobile = String(b.mobile || '').trim();
-      if (!/^1\d{10}$/.test(mobile)) return json(res, { ok: false, error: '手机号格式不对' }, 400);
-      try {
-        json(res, await login.sendSmsCode(mobile));
-      } catch (e) {
-        log.error('Login', `发送验证码失败：${e.message}`);
-        json(res, { ok: false, error: e.message }, 400);
-      }
-      return;
-    }
-    // 短信验证码登录
-    if (req.method === 'POST' && url.pathname === '/api/auth/smslogin') {
-      let body = '';
-      for await (const c of req) body += c;
-      const b = JSON.parse(body || '{}');
-      const mobile = String(b.mobile || '').trim();
-      const code = String(b.code || '').trim();
-      if (!/^1\d{10}$/.test(mobile) || !/^\d{4,8}$/.test(code)) return json(res, { ok: false, error: '手机号或验证码格式不对' }, 400);
-      try {
-        const r = await login.smsLogin(mobile, code);
-        const jwt = r.operationToken;
-        const jp = login.jwtPath();
-        fs.writeFileSync(jp, jwt + '\n', { mode: 0o600 });
-        config.token_file = jp;
-        // 手机号存为账号标识（自动续期短信重发需要）
-        config.auth = Object.assign({}, config.auth, { account: mobile, passwordEnc: '' });
-        fs.writeFileSync(config._file, JSON.stringify({ ...config, _file: undefined }, null, 2));
-        auth.acceptJwt(jwt, 'sms-login');
-        json(res, { ok: true, expires_text: auth.expiryText(), days_left: auth.status().days_left });
-      } catch (e) {
-        log.error('Login', `短信登录失败（${login.maskMobile(mobile)}）：${e.message}`);
-        json(res, { ok: false, error: e.message }, 400);
       }
       return;
     }
