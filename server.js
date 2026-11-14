@@ -381,7 +381,9 @@ const server = http.createServer(async (req, res) => {
         config.auth = a;
       }
       fs.writeFileSync(config._file, JSON.stringify({ ...config, _file: undefined }, null, 2));
-      scheduler.reschedule();
+      // 仅当保存内容真的涉及领取时间时才重排领取计划——否则保存电源/保活/通知等配置
+      // 也会打出误导性的「计划已更新：每日 08:05 领取」（计划实际没变）
+      if (patch.points && patch.points.claim_time != null) scheduler.reschedule();
       // 保活间隔变化时同步到 ka
       ka.refreshSec = Math.max(60, parseInt(config.keepalive.refreshSec || '300', 10));
       json(res, { ok: true, points: config.points, keepalive: config.keepalive });
@@ -408,6 +410,7 @@ server.listen(PORT, HOST, () => {
   else log.warn('System', '面板登录保护未开启（未设 TA_PANEL_PASSWORD）——仅建议本机 127.0.0.1 使用');
 });
 
+let svcTimer = null; // 平台服务状态轮询定时器（防 onToken 重复触发时叠加）
 auth.onToken(async (jwt) => {
   log.info('Auth', `会话凭据已加载（有效期至 ${auth.expiryText()}），开始初始化各模块`);
   api.bindToken(jwt);
@@ -419,9 +422,11 @@ auth.onToken(async (jwt) => {
   if (config.keepalive.enabled) ka.start(jwt);
   await api.refreshPoints();
   scheduler.start();
-  // 平台服务状态周期查询（10 分钟），供面板展示
+  // 平台服务状态周期查询（10 分钟），供面板展示（onToken 重复触发时先清旧定时器，避免叠加轮询）
   ka.pollServiceStatus().catch(() => {});
-  setInterval(() => { ka.pollServiceStatus().catch(() => {}); }, 10 * 60 * 1000).unref();
+  if (svcTimer) clearInterval(svcTimer);
+  svcTimer = setInterval(() => { ka.pollServiceStatus().catch(() => {}); }, 10 * 60 * 1000);
+  svcTimer.unref();
 });
 auth.init().catch((e) => log.error('Auth', `初始化失败: ${e.message}`));
 
