@@ -2,8 +2,6 @@
 
 TeleAgent 云电脑的**实例保活 + 一键打开云电脑 + 每日积分 + 电源管理 + 机器状态**控制台，为异地部署（Docker/NAS/VPS 或任意可访问平台的机器）设计。
 
-保活机制参考社区逆向成果（teleagent-keepalive v1.3.0）：调用平台实例管理 API（`teleagent-manager/v1`）实现换票保活与自动拉起。凭据通过账号密码登录获取，自动续期。
-
 ## 功能
 
 - 🔌 **实例保活（换票 + 官方心跳）**：每 5 分钟 `instance/connect` 换票，并同时发官方 `instance/refresh` / `heartbeat` 活跃信号（面板可见心跳轮数）；发现实例关机/排队时自动 `instance/start` **远程拉起**，排队中可一键 `instance/cancel` 取消
